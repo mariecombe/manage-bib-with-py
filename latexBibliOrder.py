@@ -34,7 +34,7 @@ def main():
 
     # list the input .bib files to read in the input folder (two steps)
     # a- define the pattern you are looking for:
-    pattern       = os.path.join(input_folder, “*.bib”)
+    pattern       = os.path.join(input_folder, '*.bib')
     # b- create a list of all files that fullfil this pattern
     inFileList    = glob.glob(pattern) 
 
@@ -49,8 +49,6 @@ def main():
     else:
 
         # ------------------ here the actual cleaning begins -------------------
-        # create an empty output “biblio.bib” file
-        ....
 
         # initialize an empty list to store clean bib_items from all files
         list_bib_items = list()
@@ -66,7 +64,7 @@ def main():
             f.close()
 
             # split the contents into bib_item:
-            bib_separator = ‘@’
+            bib_separator = '@'
             bib_items     = file_as_one_string.split(bib_separator)
 
             # append the bib items of this file to the list of all bib items
@@ -88,7 +86,7 @@ def main():
         for column in len():
 
             # split the bib_item into its ref_item (cite_key, title, ...)
-            ref_separator = ‘\n’
+            ref_separator = '\n'
             list_ref_items = bib_item.split(ref_separator)
 
             # clean the ref_items and store them into out matrix
@@ -105,7 +103,7 @@ def main():
         # write all non-duplicates, sorted clean bib_items to the master.bib file:
         # NB: what you write is entry_type dependant
 
-        'for all clean bib items:'
+        for ...
 
             if entry_type=='article':
                  output_file.write (....)
