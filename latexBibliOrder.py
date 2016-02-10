@@ -59,7 +59,7 @@ def main():
         for ...:
 
             # read the content of the file as one string then close the file
-            f = open(filename, ‘r’) # r for read-only
+            f = open(filename, 'r') # r for read-only
             file_as_one_string = f.read()
             f.close()
 
@@ -196,7 +196,7 @@ def clean_bib(list_ref_items):
     # we store the clean data into a list
     list_clean_ref_items = [clean_cite_key, etc, etc]
 
-    # the function returns that dictionary
+    # the function returns that list
     return list_clean_ref_items
 
 #===============================================================================
