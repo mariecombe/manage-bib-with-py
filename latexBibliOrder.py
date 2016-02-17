@@ -127,7 +127,7 @@ def main():
                 if key=='doi':         clean_entries[15][i] = value
                 if key=='year':        clean_entries[16][i] = value
 
-    print clean_entries[2]
+    print clean_entries[2][0:20]
 
     # clean the ref_items and store them into out matrix
     #clean_entries[column,:] = clean_bib(list_ref_items)
@@ -175,42 +175,62 @@ def cleanName(name):
 #===============================================================================
 
     # define individual names by splitting them via 'and' separator
-    author = name.lower().split(' and ')
-    print author
+    #authors = name.lower().split(' and ')
+    substrings = re.split(r'(?u)(?![\,\.,])\W+',name)
+    substrings = [sub.lower() for sub in substrings]
+    for i,sub in enumerate(substrings):
+        if (len(sub) > 1 and sub != 'and' and '.' not in sub):
+            sub = sub[0].upper() + sub[1:]
+        elif (len(sub) > 1 and sub != 'and' and '.' in sub):
+            sub = sub.upper()
+            if not sub.endswith('.') and not sub.endswith(','): sub = sub + '.'
 
-    # define individual words by splitting them via '.' and ' ' separators, and strip blank spaces
-    # important here: I maintain the ',' with their substrings (name_word), since they help delimitate last name from the rest
-    for i in author:
-        re.split(' | . | ,',i)
-        single_name = i.split('.')
-        print single_name
-    if len(single_name) > 1:
-        single_name = single_name[0].upper() + single_name[1:]
-    else:
-        single_name = single_name.upper() + '.'
+        elif (len(sub) == 1 and sub != 'and'):
+            sub = sub.upper() + '.'
+        substrings[i] = sub
 
-       # for words in each_name:
-         #   each_name_clean = words.strip(' ')
-       #     print each_name_clean
-
-    # make names's first letter capitalized and make accronyms capital letters follow by a dot
-    #for each_name_clean in each_name:
+    author_list = substrings[0]
+    for i,string in enumerate(substrings[1:]):
+        if string.endswith('.') and substrings[i-1].endswith('.'):
+            author_list += string
+        else:
+            author_list += ' ' + string
+    #print author_list 
 
 
-    #define the separators for the join() method
-    blank = ''
-    link = 'and'
+#    # define individual words by splitting them via '.' and ' ' separators, and strip blank spaces
+#    # important here: I maintain the ',' with their substrings (name_word), since they help delimitate last name from the rest
+#    for author in authors:
+#        print author
+#        single_name = i.split('.')
+#        #print single_name
+#    if len(single_name) > 1:
+#        single_name = single_name[0].upper() + single_name[1:]
+#    else:
+#        single_name = single_name.upper() + '.'
+#
+#       # for words in each_name:
+#         #   each_name_clean = words.strip(' ')
+#       #     print each_name_clean
+#
+#    # make names's first letter capitalized and make accronyms capital letters follow by a dot
+#    #for each_name_clean in each_name:
+#
+#
+#    #define the separators for the join() method
+#    blank = ''
+#    link = 'and'
+#
+#    #link name words to create the name_entry back
+#    name_entry = name_word.join(blank)
+#
+#    #link name entries to create name back
+#    name = name_entry.join(link)
+#
+#    # attach the {}'s and the comma, so we don't have to worry later on
+#    name = '{' + name + '},'
 
-    #link name words to create the name_entry back
-    name_entry = name_word.join(blank)
-
-    #link name entries to create name back
-    name = name_entry.join(link)
-
-    # attach the {}'s and the comma, so we don't have to worry later on
-    name = '{' + name + '},'
-
-    return name
+    return author_list
 
 
 #===============================================================================
