@@ -105,13 +105,15 @@ def main():
                 clean_entries[0][i] = bib_type
                 clean_entries[1][i] = bib_cite_key
             else:
-                key = stuff.split('=')[0].strip(' ').strip('"') #NB: we remove the white spaces before and after the string
-                value  = stuff.split('=')[1].strip(' ').strip('"')
+                # we separate the key from the value, and we clean their edges
+                # by removing the empty spaces, quotation marks, curly brackets
+                key = stuff.split('=')[0].strip(' ').strip('"').strip('{').strip('}').strip(' ')
+                value  = stuff.split('=')[1].strip(' ').strip('"').strip('{').strip('}').strip(' ')
                 #print key, value
 
                 if key=='author':      clean_entries[2][i] = value
                 if key=='editor':      clean_entries[3][i] = value
-                if key=='title': value = cleanTitle(value); clean_entries[4][i] = value
+                if key=='title':       value = cleanTitle(value);   clean_entries[4][i] = value
                 #if key=='title': clean_entries[4][i] = value
                 if key=='booktitle':   clean_entries[5][i] = value
                 if key=='chapter':     clean_entries[6][i] = value
@@ -132,26 +134,6 @@ def main():
     #clean_entries[column,:] = clean_bib(list_ref_items)
     # ---------------- we exit the loop on bib entries ---------------------
 
-def cleanTitle(title):
-    title_words = title.split(' ')
-
-    for word in title_words:
-        if word[0] == word[0].upper():
-            all_first_cap = True
-        else:
-            all_first_cap = False
-            break
-
-    if all_first_cap == True or title == title.lower():
-        title == title.lower()
-        title[0] = title[0].upper()
-        title = '{{' + title + '}}'
-
-    else:
-        title[0] = title[0].upper()
-        title = '{{' + title + '}}'
-
-    return title
 
     # Finally: remove duplicates from matrix
 
@@ -187,9 +169,29 @@ def cleanTitle(title):
     # find the clean file
 
     # exit the script
-    return None
 
+#===============================================================================
+def cleanTitle(title):
+#===============================================================================
 
+    # split the title into its words, and check if they all with with capitals
+    title_words = title.split(' ')
+
+    for word in title_words:
+        if word[0] == word[0].upper():
+            all_first_cap = True
+        else:
+            all_first_cap = False
+            break
+
+    # convert the title to lower cases if we detect all words start with capitals
+    if all_first_cap == True or title == title.lower():
+        title = title.lower()
+
+    title = title[0].upper() + title[1:]
+    title = '{{' + title + '}}'
+
+    return title
 
 #===============================================================================
 def clean_bib(list_ref_items):
