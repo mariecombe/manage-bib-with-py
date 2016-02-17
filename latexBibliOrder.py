@@ -111,11 +111,10 @@ def main():
                 value  = stuff.split('=')[1].strip(' ').strip('"').strip('{').strip('}').strip(' ')
                 #print key, value
 
-                if key=='author':      clean_entries[2][i] = value
-                if key=='editor':      clean_entries[3][i] = value
+                if key=='author':        value = cleanName(value);   clean_entries[2][i] = value
+                if key=='editor':       value = cleanName(value);   clean_entries[3][i] = value
                 if key=='title':       value = cleanTitle(value);   clean_entries[4][i] = value
-                #if key=='title': clean_entries[4][i] = value
-                if key=='booktitle':   clean_entries[5][i] = value
+                if key=='booktitle':       value = cleanTitle(value);   clean_entries[5][i] = value
                 if key=='chapter':     clean_entries[6][i] = value
                 if key=='institution': clean_entries[7][i] = value
                 if key=='school':      clean_entries[8][i] = value
@@ -128,7 +127,7 @@ def main():
                 if key=='doi':         clean_entries[15][i] = value
                 if key=='year':        clean_entries[16][i] = value
 
-    print clean_entries[4]
+    print clean_entries[2]
 
     # clean the ref_items and store them into out matrix
     #clean_entries[column,:] = clean_bib(list_ref_items)
@@ -170,6 +169,50 @@ def main():
 
     # exit the script
 
+
+#===============================================================================
+def cleanName(name):
+#===============================================================================
+
+    # define individual names by splitting them via 'and' separator
+    author = name.lower().split(' and ')
+    print author
+
+    # define individual words by splitting them via '.' and ' ' separators, and strip blank spaces
+    # important here: I maintain the ',' with their substrings (name_word), since they help delimitate last name from the rest
+    for i in author:
+        re.split(' | . | ,',i)
+        single_name = i.split('.')
+        print single_name
+    if len(single_name) > 1:
+        single_name = single_name[0].upper() + single_name[1:]
+    else:
+        single_name = single_name.upper() + '.'
+
+       # for words in each_name:
+         #   each_name_clean = words.strip(' ')
+       #     print each_name_clean
+
+    # make names's first letter capitalized and make accronyms capital letters follow by a dot
+    #for each_name_clean in each_name:
+
+
+    #define the separators for the join() method
+    blank = ''
+    link = 'and'
+
+    #link name words to create the name_entry back
+    name_entry = name_word.join(blank)
+
+    #link name entries to create name back
+    name = name_entry.join(link)
+
+    # attach the {}'s and the comma, so we don't have to worry later on
+    name = '{' + name + '},'
+
+    return name
+
+
 #===============================================================================
 def cleanTitle(title):
 #===============================================================================
@@ -188,10 +231,18 @@ def cleanTitle(title):
     if all_first_cap == True or title == title.lower():
         title = title.lower()
 
+    # make the first letter Capital and add {{}} to force bibtex to read "as is"
     title = title[0].upper() + title[1:]
-    title = '{{' + title + '}}'
+    title = '{{' + title + '}},'
 
     return title
+
+
+#===============================================================================
+#value in key 'booktitle' has the same structure needs than value in key 'title'
+#===============================================================================
+
+
 
 #===============================================================================
 def clean_bib(list_ref_items):
