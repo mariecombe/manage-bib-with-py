@@ -36,8 +36,8 @@ def main():
     # a- define the pattern you are looking for:
     pattern       = os.path.join(input_folder, '*.bib')
     # b- create a list of all files that fullfil this pattern
-    inFileList    = glob.glob(pattern) 
-    print inFileList
+    inFileList    = glob.glob(pattern)
+    #print inFileList
 
     # a- we warn the user
     # b- we exit the script
@@ -54,7 +54,7 @@ def main():
 
     # ------------------------ loop over .bib files ------------------------
 
-    # for each input file: 
+    # for each input file:
     for filename in inFileList:
 
         # read the content of the file as one string then close the file
@@ -97,43 +97,65 @@ def main():
         # loop over the rows:
         for j,stuff in enumerate(list_ref_items):
 
-            if j==0: 
+            if j==0:
                 bib_type     = stuff.split('{')[0]
                 bib_cite_key = stuff.split('{')[1]
-                print bib_type, bib_cite_key
+                #print bib_type, bib_cite_key
 
                 clean_entries[0][i] = bib_type
-                clean_entries[1][i] = bib_cite_key        
+                clean_entries[1][i] = bib_cite_key
             else:
-                key    = stuff.split('=')[0].strip(' ') #NB: we remove the white spaces before and after the string
-                value  = stuff.split('=')[1].strip(' ')
-                print key, value
+                key = stuff.split('=')[0].strip(' ').strip('"') #NB: we remove the white spaces before and after the string
+                value  = stuff.split('=')[1].strip(' ').strip('"')
+                #print key, value
 
                 if key=='author':      clean_entries[2][i] = value
-                if key=='editor':      clean_entries[3][i] = value  
-                if key=='title':       clean_entries[4][i] = value  
-                if key=='booktitle':   clean_entries[5][i] = value  
-                if key=='chapter':     clean_entries[6][i] = value  
-                if key=='institution': clean_entries[7][i] = value  
-                if key=='school':      clean_entries[8][i] = value  
-                if key=='journal':     clean_entries[9][i] = value  
-                if key=='volume':      clean_entries[10][i] = value  
-                if key=='number':      clean_entries[11][i] = value  
-                if key=='pages':       clean_entries[12][i] = value  
-                if key=='note':        clean_entries[13][i] = value  
-                if key=='url':         clean_entries[14][i] = value  
-                if key=='doi':         clean_entries[15][i] = value  
-                if key=='year':        clean_entries[16][i] = value  
+                if key=='editor':      clean_entries[3][i] = value
+                if key=='title': value = cleanTitle(value); clean_entries[4][i] = value
+                #if key=='title': clean_entries[4][i] = value
+                if key=='booktitle':   clean_entries[5][i] = value
+                if key=='chapter':     clean_entries[6][i] = value
+                if key=='institution': clean_entries[7][i] = value
+                if key=='school':      clean_entries[8][i] = value
+                if key=='journal':     clean_entries[9][i] = value
+                if key=='volume':      clean_entries[10][i] = value
+                if key=='number':      clean_entries[11][i] = value
+                if key=='pages':       clean_entries[12][i] = value
+                if key=='note':        clean_entries[13][i] = value
+                if key=='url':         clean_entries[14][i] = value
+                if key=='doi':         clean_entries[15][i] = value
+                if key=='year':        clean_entries[16][i] = value
 
-    print clean_entries
+    print clean_entries[4]
 
     # clean the ref_items and store them into out matrix
     #clean_entries[column,:] = clean_bib(list_ref_items)
     # ---------------- we exit the loop on bib entries ---------------------
 
+def cleanTitle(title):
+    title_words = title.split(' ')
+
+    for word in title_words:
+        if word[0] == word[0].upper():
+            all_first_cap = True
+        else:
+            all_first_cap = False
+            break
+
+    if all_first_cap == True or title == title.lower():
+        title == title.lower()
+        title[0] = title[0].upper()
+        title = '{{' + title + '}}'
+
+    else:
+        title[0] = title[0].upper()
+        title = '{{' + title + '}}'
+
+    return title
+
     # Finally: remove duplicates from matrix
 
-    # sort alphabetically 
+    # sort alphabetically
 
     # initialize an output file, which will be stored in the 'output' folder
 
@@ -150,7 +172,7 @@ def main():
 
     #    if entry_type=='article':
     #         output_file.write (....)
-    #    elif entry_type=='book': 
+    #    elif entry_type=='book':
     #         output_file.write (....)
     #    elif entry_type=='chapter':
     #         output_file.write (....)
@@ -174,8 +196,8 @@ def clean_bib(list_ref_items):
 #===============================================================================
 
     """
-    clean_bib() cleans 1 bibliographic entry that has been separated into its 
-    ref_items NB: I assume here we separated the bib_item string into its 
+    clean_bib() cleans 1 bibliographic entry that has been separated into its
+    ref_items NB: I assume here we separated the bib_item string into its
     numerous ref_item strings using the return symbols ('\n') as separator
 
     For example, we provide the following of ref_items to the function:
@@ -194,14 +216,14 @@ def clean_bib(list_ref_items):
     'abstract = "A dense grid of (...) subduction is still active. "\r\n}\r\n']
 
     We want to convert the ref_items with the following rules:
-    - for all ref_items: 
+    - for all ref_items:
         * we use { } instead of "".
         * we write as ref_item = {Sth sth sth}, instead of other formats that
-          are more chunky. Note the position of the brackets and that of the 
+          are more chunky. Note the position of the brackets and that of the
           comma and the spacing among elements above.
         * no ref_item has spaces at the beginning or the end of the {}.
 
-    - we format some specific ref_items: 
+    - we format some specific ref_items:
         * cite_key  last_name:YYa
         * title     title = {{title_text}}
         * author    author = {Last_name1, Initials, Last_name2, Initials, etc}
@@ -211,7 +233,7 @@ def clean_bib(list_ref_items):
         * number    number = {number}
 
     - we remove the following ref_items:
-        abstract, type, series, organization, note, annote, crossref, edition, 
+        abstract, type, series, organization, note, annote, crossref, edition,
         howpublished, month, issn
 
     - we reorder the ref_items inside each bib_entry as follows
@@ -235,7 +257,7 @@ def clean_bib(list_ref_items):
     clean_cite_key = cite_key.split('{')[1]
 
     # we clean the other entries: (follow the rules)
-		  
+
     # we store the clean data into a list
     list_clean_ref_items = [clean_cite_key, etc, etc]
 
