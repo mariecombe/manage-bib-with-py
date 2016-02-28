@@ -85,14 +85,15 @@ def main():
     # we initiate a list of invalid bib references
     invalid_refs = list()
 
+
     # for each bib_item of the total list:
     for i in range(nbcols):
 
         # split the bib_item into its ref_item (cite_key, title, ...)
-        if ',\r\n' in files_as_one_string:
-            ref_item_separator = ',\r\n'
+        if '\r\n' in files_as_one_string:
+            ref_item_separator = '\r\n'
         else:
-            ref_item_separator = ',\n'
+            ref_item_separator = '\n'
 
         list_ref_items     = bib_items[i].split(ref_item_separator)
 
@@ -106,36 +107,37 @@ def main():
                 clean_entries[1][i]   = bib_cite_key
                 #print bib_type, bib_cite_key
             else:
-                # we separate the key from the value, and we clean their edges
-                # by removing the empty spaces, quotation marks, curly brackets
-                key = stuff.split('=')[0].strip(' ').strip('"').strip('{').strip('}').strip(' ')
-                value  = stuff.split('=')[1].strip(' ').strip('"').strip('{').strip('}').strip(' ')
-                #print key, value
+                if len(stuff.split('='))==2:
+                    # we separate the key from the value, and we clean their edges
+                    # by removing the empty spaces, quotation marks, curly brackets
+                    key = stuff.split('=')[0].strip(' ').strip('"').strip('{').strip('}').strip(' ')
+                    value  = stuff.split('=')[1].strip(',').strip(' ').strip('"').strip('{').strip('}').strip(' ')
+                    #print key, value
+                 
+                    if key=='author':      author = cleanName(value);    clean_entries[2][i] = author
+                    if key=='editor':      editor = cleanName(value);    clean_entries[3][i] = editor
+                    if key=='title':       title  = cleanTitle(value);   clean_entries[4][i] = title
+                    if key=='booktitle':   btitle = cleanTitle(value);   clean_entries[5][i] = btitle
+                    if key=='chapter':     clean_entries[6][i] = value
+                    if key=='institution': clean_entries[7][i] = value
+                    if key=='school':      clean_entries[8][i] = value
+                    if key=='journal':     clean_entries[9][i] = value
+                    if key=='volume':      
+                        volume = cleanVolume(value, i, bib_type)
+                        clean_entries[10][i] = volume[0]
+                        if volume[1]!=None: invalid_refs += [volume[1]] # if we detected invalid volume
+                    if key=='number':      
+                        number = cleanNumber(value, i, bib_type)
+                        clean_entries[11][i] = number[0]
+                        if number[1]!=None: invalid_refs += [number[1]] # if we detected invalid number
+                    if key=='pages':       clean_entries[12][i] = value
+                    if key=='note':        clean_entries[13][i] = value
+                    if key=='url':         clean_entries[14][i] = value
+                    if key=='doi':         clean_entries[15][i] = value
+                    if key=='year':        clean_entries[16][i] = value[0:4]
 
-                if key=='author':      author = cleanName(value);    clean_entries[2][i] = author
-                if key=='editor':      editor = cleanName(value);    clean_entries[3][i] = editor
-                if key=='title':       title  = cleanTitle(value);   clean_entries[4][i] = title
-                if key=='booktitle':   btitle = cleanTitle(value);   clean_entries[5][i] = btitle
-                if key=='chapter':     clean_entries[6][i] = value
-                if key=='institution': clean_entries[7][i] = value
-                if key=='school':      clean_entries[8][i] = value
-                if key=='journal':     clean_entries[9][i] = value
-                if key=='volume':      
-                    volume = cleanVolume(value, i, bib_type)
-                    clean_entries[10][i] = volume[0]
-                    if volume[1]!=None: invalid_refs += [volume[1]] # if we detected invalid volume
-                if key=='number':      
-                    number = cleanNumber(value, i, bib_type)
-                    clean_entries[11][i] = number[0]
-                    if number[1]!=None: invalid_refs += [number[1]] # if we detected invalid number
-                if key=='pages':       clean_entries[12][i] = value
-                if key=='note':        clean_entries[13][i] = value
-                if key=='url':         clean_entries[14][i] = value
-                if key=='doi':         clean_entries[15][i] = value
-                if key=='year':        clean_entries[16][i] = value[0:4]
 
-
-    #print clean_entries[11]
+    print clean_entries[10]
 
 
     # after reading all the information for all bib items, and having 
@@ -228,15 +230,15 @@ def cleanNumber(number, ref_nb, ref_type):
     # -------------------------------------------------
     # return an error if the number is not provided for an article
     if (number == '') and (ref_type == 'article'):
-        return number, (ref_nb, 'missing number of article', number)
+        return number, (ref_nb, 'missing issue number of article', number)
 
     # return error if the item contains unauthorized punctuation (only '--' allowed)
     elif itemContainsPunct==True:
-        return number, (ref_nb, 'invalid number', number)
+        return number, (ref_nb, 'invalid issue number', number)
 
     # return error if double dash is missing a number as bounds
     elif invalidDashBounds==True:
-        return number, (ref_nb, 'invalid number', number)
+        return number, (ref_nb, 'invalid issue number', number)
 
     # in all other cases, return no error
     else:
@@ -272,15 +274,15 @@ def cleanVolume(volume, ref_nb, ref_type):
     # -------------------------------------------------
     # return no error if the volume is not provided in case of an article
     if (volume=='') and (ref_type == 'article'):
-        return volume, (ref_nb, 'missing volume of article', volume)
+        return volume, (ref_nb, 'missing volume number of article', volume)
 
     # return error if the item contains unauthorized punctuation (only '--' allowed)
     elif itemContainsPunct==True:
-        return volume, (ref_nb, 'invalid volume', volume)
+        return volume, (ref_nb, 'invalid volume number', volume)
 
     # return error if double dash is missing a number as bounds
     elif invalidDashBounds==True:
-        return volume, (ref_nb, 'invalid volume', volume)
+        return volume, (ref_nb, 'invalid volume number', volume)
 
     # in all other cases, return no error
     else:
