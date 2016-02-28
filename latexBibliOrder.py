@@ -15,6 +15,7 @@ Processing include:
 
 import sys, os, glob, re
 import numpy as np
+from operator import itemgetter
 
 
 #===============================================================================
@@ -130,14 +131,17 @@ def main():
                         number = cleanNumber(value, i, bib_type)
                         clean_entries[11][i] = number[0]
                         if number[1]!=None: invalid_refs += [number[1]] # if we detected invalid number
-                    if key=='pages':       clean_entries[12][i] = value
+                    if key=='pages':
+                        pages = cleanPages(value, i, bib_type)
+                        clean_entries[12][i] = pages[0]
+                        if pages[1]!=None: invalid_refs += [pages[1]] # if we detected invalid number
                     if key=='note':        clean_entries[13][i] = value
                     if key=='url':         clean_entries[14][i] = value
                     if key=='doi':         clean_entries[15][i] = value
                     if key=='year':        clean_entries[16][i] = value[0:4]
 
 
-    print clean_entries[10]
+    print clean_entries[12]
 
 
     # after reading all the information for all bib items, and having 
@@ -154,8 +158,10 @@ def main():
 
     # after cleaning the reference table entirely, we print warning messages to
     # the user about invalid reference items
-    for ref_nb, message, ref_item in invalid_refs:
-        print 'WARNING! invalid reference: %20s     reason: %s (%s)'%(clean_entries[1][ref_nb], message, ref_item) 
+    if len(invalid_refs)>0: 
+        print 'User modifications needed:'
+        for ref_nb, message, ref_item in invalid_refs:
+            print 'WARNING! %20s : %s (%s)'%(clean_entries[1][ref_nb], message, ref_item) 
 
     # clean the ref_items and store them into out matrix
     #clean_entries[column,:] = clean_bib(list_ref_items)
@@ -201,6 +207,51 @@ def main():
     # exit the script
 
 #===============================================================================
+def cleanPages(pages, ref_nb, ref_type):
+#===============================================================================
+    
+    # 1- cleaning:
+    # ------------
+    invalidPages = False
+    # replace single '-' by double '--'
+    if '--' not in pages and '-' in pages:
+        pages = pages.replace('-','--')
+    # strip empty spaces around '--' when relevant
+    if '--' in pages:
+        pp = pages.split('--')
+        if len(pp)==2:
+            pp[0] = pp[0].strip(' ')
+            pp[1] = pp[1].strip(' ')
+            # if a page bound is missing: invalid format error
+            if pp[0]=='' or pp[1]=='': invalidPages
+            pages = pp[0]+'--'+pp[1]
+        # if we have more than one '--': invalid format error
+        else:
+            invalidPages = True
+
+    # final search for unauthorized characters in the pages string:
+    # we allow only '--' and numerical characters (no puntuation, no letters)
+    import string
+    unauthorized_chars = string.punctuation + string.ascii_letters
+    unauthorized_chars = unauthorized_chars.replace('-','') # remove '-' from list of unauthorized characters
+    for char in repr(pages).strip("'"): # to ba able to detect encoding of strange characters
+        if char in unauthorized_chars: invalidPages = True; break
+    
+    # 2- return clean item, and error message if needed
+    # -------------------------------------------------
+    # return error if the ref item is not provided but is compulsory for a certain bib type
+    if (pages == '') and (ref_type == 'article' or ref_type == 'inbook'):
+        return pages, (ref_nb, 'missing pages', pages)
+
+    # return error if the item contains unauthorized characters
+    elif invalidPages==True:
+        return pages, (ref_nb, 'invalid pages', pages)
+
+    # in all other cases, return no error
+    else:
+        return pages, None
+
+#===============================================================================
 def cleanNumber(number, ref_nb, ref_type):
 #===============================================================================
     
@@ -212,19 +263,18 @@ def cleanNumber(number, ref_nb, ref_type):
     if '--' not in number and '-' in number:
         number = number.replace('-','--')
     # in case of double '--', check if bound by two numbers always
-    invalidDashBounds = False
+    invalidNumber = False
     if '--' in number:
         bounds = number.split('--')
-        if bounds[0]=='' or bounds[1]=='': invalidDashBounds = True
+        if bounds[0]=='' or bounds[1]=='': invalidNumber = True
 
-    # return error if volume contains non alpha numeric characters except '--'
+    # final search for unauthorized characters in the number string:
+    # we allow only '--' punctuation characters
     import string
     unauthorized_chars = string.punctuation
     unauthorized_chars = unauthorized_chars.replace('-','') # remove '-' from list of unauthorized characters
-    itemContainsPunct = False
-    # search for these unauthorized characters in the number string:
-    for char in number:
-        if char in unauthorized_chars: itemContainsPunct = True; break
+    for char in repr(number).strip("'"): # to ba able to detect encoding of strange characters
+        if char in unauthorized_chars: invalidNumber = True; break
     
     # 2- return clean item, and error message if needed
     # -------------------------------------------------
@@ -233,11 +283,7 @@ def cleanNumber(number, ref_nb, ref_type):
         return number, (ref_nb, 'missing issue number of article', number)
 
     # return error if the item contains unauthorized punctuation (only '--' allowed)
-    elif itemContainsPunct==True:
-        return number, (ref_nb, 'invalid issue number', number)
-
-    # return error if double dash is missing a number as bounds
-    elif invalidDashBounds==True:
+    elif invalidNumber==True:
         return number, (ref_nb, 'invalid issue number', number)
 
     # in all other cases, return no error
@@ -256,33 +302,28 @@ def cleanVolume(volume, ref_nb, ref_type):
     if '--' not in volume and '-' in volume:
         volume = volume.replace('-','--')
     # in case of double '--', check if bound by two numbers always
-    invalidDashBounds = False
+    invalidVolume = False
     if '--' in volume:
         bounds = volume.split('--')
-        if bounds[0]=='' or bounds[1]=='': invalidDashBounds = True
+        if bounds[0]=='' or bounds[1]=='': invalidVolume = True
  
-    # return error if volume contains non alpha numeric characters except '--'
+    # final search for unauthorized characters in the number string:
+    # we allow only '--' punctuation characters
     import string
     unauthorized_chars = string.punctuation
     unauthorized_chars = unauthorized_chars.replace('-','') # remove '-' from list of unauthorized characters
-    itemContainsPunct = False
-    # search for these unauthorized characters in the volume string:
-    for char in volume:
-        if char in unauthorized_chars: itemContainsPunct = True; break
+    for char in repr(volume).strip("'"): # to ba able to detect encoding of strange characters
+        if char in unauthorized_chars: invalidVolume = True; break
     
     # 2- return clean item, and error message if needed
     # -------------------------------------------------
     # return no error if the volume is not provided in case of an article
     if (volume=='') and (ref_type == 'article'):
-        return volume, (ref_nb, 'missing volume number of article', volume)
+        return volume, (ref_nb, 'missing volume of article', volume)
 
     # return error if the item contains unauthorized punctuation (only '--' allowed)
-    elif itemContainsPunct==True:
-        return volume, (ref_nb, 'invalid volume number', volume)
-
-    # return error if double dash is missing a number as bounds
-    elif invalidDashBounds==True:
-        return volume, (ref_nb, 'invalid volume number', volume)
+    elif invalidVolume==True:
+        return volume, (ref_nb, 'invalid volume', volume)
 
     # in all other cases, return no error
     else:
