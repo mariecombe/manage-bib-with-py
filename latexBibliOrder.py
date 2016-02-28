@@ -82,6 +82,8 @@ def main():
     # to set the data type of that array to 'arbitrary object':
     clean_entries = np.array([['']*nbcols]*nbrows, dtype=object)
 
+    # we initiate a list of invalid bib references
+    invalid_refs = list()
 
     # for each bib_item of the total list:
     for i in range(nbcols):
@@ -94,16 +96,15 @@ def main():
 
         list_ref_items     = bib_items[i].split(ref_item_separator)
 
-        # loop over the rows:
+        # loop over the rows fro the end to the start:
         for j,stuff in enumerate(list_ref_items):
-
+            
             if j==0:
                 bib_type     = stuff.split('{')[0]
                 bib_cite_key = stuff.split('{')[1]
+                clean_entries[0][i]   = bib_type
+                clean_entries[1][i]   = bib_cite_key
                 #print bib_type, bib_cite_key
-
-                clean_entries[0][i] = bib_type
-                clean_entries[1][i] = bib_cite_key
             else:
                 # we separate the key from the value, and we clean their edges
                 # by removing the empty spaces, quotation marks, curly brackets
@@ -111,23 +112,48 @@ def main():
                 value  = stuff.split('=')[1].strip(' ').strip('"').strip('{').strip('}').strip(' ')
                 #print key, value
 
-                if key=='author':        value = cleanName(value);   clean_entries[2][i] = value
-                if key=='editor':       value = cleanName(value);   clean_entries[3][i] = value
-                if key=='title':       value = cleanTitle(value);   clean_entries[4][i] = value
-                if key=='booktitle':       value = cleanTitle(value);   clean_entries[5][i] = value
+                if key=='author':      author = cleanName(value);    clean_entries[2][i] = author
+                if key=='editor':      editor = cleanName(value);    clean_entries[3][i] = editor
+                if key=='title':       title  = cleanTitle(value);   clean_entries[4][i] = title
+                if key=='booktitle':   btitle = cleanTitle(value);   clean_entries[5][i] = btitle
                 if key=='chapter':     clean_entries[6][i] = value
                 if key=='institution': clean_entries[7][i] = value
                 if key=='school':      clean_entries[8][i] = value
                 if key=='journal':     clean_entries[9][i] = value
-                if key=='volume':      clean_entries[10][i] = value
-                if key=='number':      clean_entries[11][i] = value
+                if key=='volume':      
+                    volume = cleanVolume(value, i, bib_type)
+                    clean_entries[10][i] = volume[0]
+                    if volume[1]!=None: invalid_refs += [volume[1]] # if we detected invalid volume
+                if key=='number':      
+                    number = cleanNumber(value, i, bib_type)
+                    clean_entries[11][i] = number[0]
+                    if number[1]!=None: invalid_refs += [number[1]] # if we detected invalid number
                 if key=='pages':       clean_entries[12][i] = value
                 if key=='note':        clean_entries[13][i] = value
                 if key=='url':         clean_entries[14][i] = value
                 if key=='doi':         clean_entries[15][i] = value
-                if key=='year':        clean_entries[16][i] = value
+                if key=='year':        clean_entries[16][i] = value[0:4]
 
-    print clean_entries[2][0:20]
+
+    #print clean_entries[11]
+
+
+    # after reading all the information for all bib items, and having 
+    # stored it in the table we clean the bib cite key items
+    for i in range(nbcols):    
+        try:
+            clean_entries[1][i] = cleanBibCiteKey(clean_entries[1][i], clean_entries[2][i], clean_entries[16][i])
+        except IndexError: # except "when the computer cannot find an author", then do:
+            try:
+                clean_entries[1][i] = cleanBibCiteKey(clean_entries[1][i], clean_entries[3][i], clean_entries[16][i])
+            except IndexError: # except "when the computer cannot find an editor", then do:
+                clean_entries[1][i] = cleanBibCiteKey(clean_entries[1][i], clean_entries[7][i], clean_entries[16][i])
+
+
+    # after cleaning the reference table entirely, we print warning messages to
+    # the user about invalid reference items
+    for ref_nb, message, ref_item in invalid_refs:
+        print 'WARNING! invalid reference: %20s     reason: %s (%s)'%(clean_entries[1][ref_nb], message, ref_item) 
 
     # clean the ref_items and store them into out matrix
     #clean_entries[column,:] = clean_bib(list_ref_items)
@@ -137,6 +163,9 @@ def main():
     # Finally: remove duplicates from matrix
 
     # sort alphabetically
+
+    # check for gaps:
+    # if something is missing (e.g. an author for an article?) then warn the user to add it
 
     # initialize an output file, which will be stored in the 'output' folder
 
@@ -169,6 +198,106 @@ def main():
 
     # exit the script
 
+#===============================================================================
+def cleanNumber(number, ref_nb, ref_type):
+#===============================================================================
+    
+    # 1- cleaning:
+    # ------------
+    # ? signs appear to occur instead of - 
+    number = number.replace('?','--')
+    # replace single '-' by double '--'
+    if '--' not in number and '-' in number:
+        number = number.replace('-','--')
+    # in case of double '--', check if bound by two numbers always
+    invalidDashBounds = False
+    if '--' in number:
+        bounds = number.split('--')
+        if bounds[0]=='' or bounds[1]=='': invalidDashBounds = True
+
+    # return error if volume contains non alpha numeric characters except '--'
+    import string
+    unauthorized_chars = string.punctuation
+    unauthorized_chars = unauthorized_chars.replace('-','') # remove '-' from list of unauthorized characters
+    itemContainsPunct = False
+    # search for these unauthorized characters in the number string:
+    for char in number:
+        if char in unauthorized_chars: itemContainsPunct = True; break
+    
+    # 2- return clean item, and error message if needed
+    # -------------------------------------------------
+    # return an error if the number is not provided for an article
+    if (number == '') and (ref_type == 'article'):
+        return number, (ref_nb, 'missing number of article', number)
+
+    # return error if the item contains unauthorized punctuation (only '--' allowed)
+    elif itemContainsPunct==True:
+        return number, (ref_nb, 'invalid number', number)
+
+    # return error if double dash is missing a number as bounds
+    elif invalidDashBounds==True:
+        return number, (ref_nb, 'invalid number', number)
+
+    # in all other cases, return no error
+    else:
+        return number, None
+
+#===============================================================================
+def cleanVolume(volume, ref_nb, ref_type):
+#===============================================================================
+    
+    # 1- cleaning:
+    # ------------
+    # ? signs appear to occur instead of - 
+    volume = volume.replace('?','--')
+    # replace single '-' by double '--'
+    if '--' not in volume and '-' in volume:
+        volume = volume.replace('-','--')
+    # in case of double '--', check if bound by two numbers always
+    invalidDashBounds = False
+    if '--' in volume:
+        bounds = volume.split('--')
+        if bounds[0]=='' or bounds[1]=='': invalidDashBounds = True
+ 
+    # return error if volume contains non alpha numeric characters except '--'
+    import string
+    unauthorized_chars = string.punctuation
+    unauthorized_chars = unauthorized_chars.replace('-','') # remove '-' from list of unauthorized characters
+    itemContainsPunct = False
+    # search for these unauthorized characters in the volume string:
+    for char in volume:
+        if char in unauthorized_chars: itemContainsPunct = True; break
+    
+    # 2- return clean item, and error message if needed
+    # -------------------------------------------------
+    # return no error if the volume is not provided in case of an article
+    if (volume=='') and (ref_type == 'article'):
+        return volume, (ref_nb, 'missing volume of article', volume)
+
+    # return error if the item contains unauthorized punctuation (only '--' allowed)
+    elif itemContainsPunct==True:
+        return volume, (ref_nb, 'invalid volume', volume)
+
+    # return error if double dash is missing a number as bounds
+    elif invalidDashBounds==True:
+        return volume, (ref_nb, 'invalid volume', volume)
+
+    # in all other cases, return no error
+    else:
+        return volume, None
+
+#===============================================================================
+def cleanBibCiteKey(key, listAuthors, year):
+#===============================================================================
+    
+    # compare the original key to the list of authors
+    common_sub = list(lcs(key.lower(), listAuthors.lower()))
+    
+    # create a clean key with the year
+    clean_key_D = str(common_sub[0]) + '%s'%str(year)[2:4]
+    clean_key_M = str(common_sub[0]) + ':%s'%year
+    
+    return clean_key_D
 
 #===============================================================================
 def lcs(S,T):
