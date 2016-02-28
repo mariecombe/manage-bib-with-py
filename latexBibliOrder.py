@@ -115,10 +115,22 @@ def main():
                     value  = stuff.split('=')[1].strip(',').strip(' ').strip('"').strip('{').strip('}').strip(' ')
                     #print key, value
                  
-                    if key=='author':      author = cleanName(value);    clean_entries[2][i] = author
-                    if key=='editor':      editor = cleanName(value);    clean_entries[3][i] = editor
-                    if key=='title':       title  = cleanTitle(value);   clean_entries[4][i] = title
-                    if key=='booktitle':   btitle = cleanTitle(value);   clean_entries[5][i] = btitle
+                    if key=='author':      
+                        author = cleanName(value, i, bib_type)
+                        clean_entries[2][i] = author[0]
+                        if author[1]!=None: invalid_refs += [author[1]] # if we detected invalid volume
+                    if key=='editor':      
+                        editor = cleanName(value, i, bib_type)
+                        clean_entries[3][i] = editor[0]
+                        if editor[1]!=None: invalid_refs += [editor[1]] # if we detected invalid volume
+                    if key=='title':       
+                        title  = cleanTitle(value, i, bib_type)   
+                        clean_entries[4][i] = title[0]
+                        if title[1]!=None: invalid_refs += [title[1]] # if we detected invalid volume
+                    if key=='booktitle':   
+                        btitle = cleanTitle(value, i, bib_type)
+                        clean_entries[5][i] = btitle
+                        if btitle[1]!=None: invalid_refs += [btitle[1]] # if we detected invalid volume
                     if key=='chapter':     clean_entries[6][i] = value
                     if key=='institution': clean_entries[7][i] = value
                     if key=='school':      clean_entries[8][i] = value
@@ -141,19 +153,22 @@ def main():
                     if key=='year':        clean_entries[16][i] = value[0:4]
 
 
-    print clean_entries[12]
+    #print clean_entries[4]
 
 
     # after reading all the information for all bib items, and having 
     # stored it in the table we clean the bib cite key items
     for i in range(nbcols):    
         try:
-            clean_entries[1][i] = cleanBibCiteKey(clean_entries[1][i], clean_entries[2][i], clean_entries[16][i])
+            clean_entries[1][i] = cleanBibCiteKey(clean_entries[1][i], clean_entries[2][i], 
+                                                  clean_entries[4][i], clean_entries[16][i])
         except IndexError: # except "when the computer cannot find an author", then do:
             try:
-                clean_entries[1][i] = cleanBibCiteKey(clean_entries[1][i], clean_entries[3][i], clean_entries[16][i])
+                clean_entries[1][i] = cleanBibCiteKey(clean_entries[1][i], clean_entries[3][i], 
+                                                      clean_entries[4][i], clean_entries[16][i])
             except IndexError: # except "when the computer cannot find an editor", then do:
-                clean_entries[1][i] = cleanBibCiteKey(clean_entries[1][i], clean_entries[7][i], clean_entries[16][i])
+                clean_entries[1][i] = cleanBibCiteKey(clean_entries[1][i], clean_entries[7][i], 
+                                                      clean_entries[4][i], clean_entries[16][i])
 
 
     # after cleaning the reference table entirely, we print warning messages to
@@ -330,14 +345,15 @@ def cleanVolume(volume, ref_nb, ref_type):
         return volume, None
 
 #===============================================================================
-def cleanBibCiteKey(key, listAuthors, year):
+def cleanBibCiteKey(key, listAuthors, title, year):
 #===============================================================================
     
     # compare the original key to the list of authors
     common_sub = list(lcs(key.lower(), listAuthors.lower()))
     
     # create a clean key with the year
-    clean_key_D = str(common_sub[0]) + '%s'%str(year)[2:4]
+    startTitle  = title.split(' ')[0].strip('{{').lower()[:5].strip('-')
+    clean_key_D = str(common_sub[0]) + '%s'%str(year)[2:4] + startTitle 
     clean_key_M = str(common_sub[0]) + ':%s'%year
     
     return clean_key_D
@@ -365,7 +381,7 @@ def lcs(S,T):
     return lcs_set
 
 #===============================================================================
-def cleanName(name):
+def cleanName(name, ref_nb, ref_type):
 #===============================================================================
 
     # define individual names by splitting them via 'and' separator
@@ -389,46 +405,31 @@ def cleanName(name):
             author_list += string
         else:
             author_list += ' ' + string
-    #print author_list 
 
 
-#    # define individual words by splitting them via '.' and ' ' separators, and strip blank spaces
-#    # important here: I maintain the ',' with their substrings (name_word), since they help delimitate last name from the rest
-#    for author in authors:
-#        print author
-#        single_name = i.split('.')
-#        #print single_name
-#    if len(single_name) > 1:
-#        single_name = single_name[0].upper() + single_name[1:]
-#    else:
-#        single_name = single_name.upper() + '.'
-#
-#       # for words in each_name:
-#         #   each_name_clean = words.strip(' ')
-#       #     print each_name_clean
-#
-#    # make names's first letter capitalized and make accronyms capital letters follow by a dot
-#    #for each_name_clean in each_name:
-#
-#
-#    #define the separators for the join() method
-#    blank = ''
-#    link = 'and'
-#
-#    #link name words to create the name_entry back
-#    name_entry = name_word.join(blank)
-#
-#    #link name entries to create name back
-#    name = name_entry.join(link)
-#
 #    # attach the {}'s and the comma, so we don't have to worry later on
 #    name = '{' + name + '},'
 
-    return author_list
+    # check for invalid format:
+    invalidName = False
+    # author_list is invalid if there is a missing parenthesis in the final string
+    for par1, par2 in zip('({[',')}]'):
+        tt1 = author_list.split(par1)
+        tt2 = author_list.split(par2)
+        if len(tt1) != len(tt2): invalidName = True
+
+
+    # return error if the item is invalid
+    if invalidName==True:
+        return author_list, (ref_nb, 'invalid author list', author_list)
+
+    # in all other cases, return no error
+    else:
+        return author_list, None
 
 
 #===============================================================================
-def cleanTitle(title):
+def cleanTitle(title, ref_nb, ref_type):
 #===============================================================================
 
     # split the title into its words, and check if they all with with capitals
@@ -449,7 +450,22 @@ def cleanTitle(title):
     title = title[0].upper() + title[1:]
     title = '{{' + title + '}},'
 
-    return title
+    # check for invalid format:
+    invalidTitle = False
+    # title is invalid if there is a missing parenthesis in the final string
+    for par1, par2 in zip('({[',')}]'):
+        tt1 = title.split(par1)
+        tt2 = title.split(par2)
+        if len(tt1) != len(tt2): invalidTitle = True
+
+
+    # return error if the item is invalid
+    if invalidTitle==True:
+        return title, (ref_nb, 'invalid title', title)
+
+    # in all other cases, return no error
+    else:
+        return title, None
 
 
 #===============================================================================
