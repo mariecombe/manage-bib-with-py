@@ -108,7 +108,9 @@ def main():
                 clean_entries[1][i]   = bib_cite_key
                 #print bib_type, bib_cite_key
             else:
-                if len(stuff.split('='))==2:
+                if len(stuff.split('='))==2: # if the line that is read contains useful info
+                                             # i.e. if it is not a single curly bracket or empty line
+
                     # we separate the key from the value, and we clean their edges
                     # by removing the empty spaces, quotation marks, curly brackets
                     key = stuff.split('=')[0].strip(' ').strip('"').strip('{').strip('}').strip(' ')
@@ -118,19 +120,19 @@ def main():
                     if key=='author':      
                         author = cleanName(value, i, bib_type)
                         clean_entries[2][i] = author[0]
-                        if author[1]!=None: invalid_refs += [author[1]] # if we detected invalid volume
+                        if author[1]!=None: invalid_refs += [author[1]] # if we detected invalid author
                     if key=='editor':      
                         editor = cleanName(value, i, bib_type)
                         clean_entries[3][i] = editor[0]
-                        if editor[1]!=None: invalid_refs += [editor[1]] # if we detected invalid volume
+                        if editor[1]!=None: invalid_refs += [editor[1]] # if we detected invalid editor
                     if key=='title':       
                         title  = cleanTitle(value, i, bib_type)   
                         clean_entries[4][i] = title[0]
-                        if title[1]!=None: invalid_refs += [title[1]] # if we detected invalid volume
+                        if title[1]!=None: invalid_refs += [title[1]] # if we detected invalid title
                     if key=='booktitle':   
                         btitle = cleanTitle(value, i, bib_type)
                         clean_entries[5][i] = btitle
-                        if btitle[1]!=None: invalid_refs += [btitle[1]] # if we detected invalid volume
+                        if btitle[1]!=None: invalid_refs += [btitle[1]] # if we detected invalid book title
                     if key=='chapter':     clean_entries[6][i] = value
                     if key=='institution': clean_entries[7][i] = value
                     if key=='school':      clean_entries[8][i] = value
@@ -146,37 +148,57 @@ def main():
                     if key=='pages':
                         pages = cleanPages(value, i, bib_type)
                         clean_entries[12][i] = pages[0]
-                        if pages[1]!=None: invalid_refs += [pages[1]] # if we detected invalid number
-                    if key=='note':        clean_entries[13][i] = value
-                    if key=='url':         clean_entries[14][i] = value
-                    if key=='doi':         clean_entries[15][i] = value
-                    if key=='year':        clean_entries[16][i] = value[0:4]
+                        if pages[1]!=None: invalid_refs += [pages[1]] # if we detected invalid pages
+                    if key=='note': 
+                        note = cleanNote(value, i, bib_type)
+                        clean_entries[13][i] = note[0]
+                        if note[1]!=None: invalid_refs += [note[1]] # if we detected invalid note
+                    if key=='url':
+                        url = cleanURL(value, i, bib_type)
+                        clean_entries[14][i] = url[0]
+                        if url[1]!=None: invalid_refs += [url[1]] # if we detected invalid URL
+                    if key=='doi':
+                        doi = cleanDOI(value, i, bib_type)
+                        clean_entries[15][i] = doi[0]
+                        if doi[1]!=None: invalid_refs += [doi[1]] # if we detected invalid doi
+                    if key=='year':
+                        year = cleanYear(value, i, bib_type)
+                        clean_entries[16][i] = year[0]
+                        if year[1]!=None: invalid_refs += [year[1]] # if we detected invalid year
 
 
-    #print clean_entries[4]
+    #print clean_entries[6]
 
 
     # after reading all the information for all bib items, and having 
     # stored it in the table we clean the bib cite key items
     for i in range(nbcols):    
         try:
-            clean_entries[1][i] = cleanBibCiteKey(clean_entries[1][i], clean_entries[2][i], 
-                                                  clean_entries[4][i], clean_entries[16][i])
+            clean_entries[1][i] = cleanBibCiteKey(clean_entries[1][i], 
+                                                  clean_entries[2][i], 
+                                                  clean_entries[4][i], 
+                                                  clean_entries[16][i])
         except IndexError: # except "when the computer cannot find an author", then do:
             try:
-                clean_entries[1][i] = cleanBibCiteKey(clean_entries[1][i], clean_entries[3][i], 
-                                                      clean_entries[4][i], clean_entries[16][i])
+                clean_entries[1][i] = cleanBibCiteKey(clean_entries[1][i], 
+                                                      clean_entries[3][i], 
+                                                      clean_entries[4][i], 
+                                                      clean_entries[16][i])
             except IndexError: # except "when the computer cannot find an editor", then do:
-                clean_entries[1][i] = cleanBibCiteKey(clean_entries[1][i], clean_entries[7][i], 
-                                                      clean_entries[4][i], clean_entries[16][i])
+                clean_entries[1][i] = cleanBibCiteKey(clean_entries[1][i], 
+                                                      clean_entries[7][i], 
+                                                      clean_entries[4][i], 
+                                                      clean_entries[16][i])
 
 
-    # after cleaning the reference table entirely, we print warning messages to
-    # the user about invalid reference items
+    # if entries with errors were detected during the cleaning
     if len(invalid_refs)>0: 
+        # we print warning messages for the user to take action
         print 'User modifications needed:'
-        for ref_nb, message, ref_item in invalid_refs:
-            print 'WARNING! %20s : %s (%s)'%(clean_entries[1][ref_nb], message, ref_item) 
+        for bibitem_nb, error_message, clean_value in invalid_refs:
+            cite_key = clean_entries[1][bibitem_nb]
+            print 'WARNING! %20s : %s '%(cite_key, error_message) +\
+            '(%s)'%clean_value.strip(',').strip('{').strip('}')
 
     # clean the ref_items and store them into out matrix
     #clean_entries[column,:] = clean_bib(list_ref_items)
@@ -222,6 +244,158 @@ def main():
     # exit the script
 
 #===============================================================================
+def cleanYear(year, ref_nb, ref_type):
+#===============================================================================
+    
+    # 1- cleaning:
+    # ------------
+    # we append one set of curly brackets around the year if non empty
+    if year!='':
+        year = '{' + year + '}'
+
+    # 2- check for invalid format:
+    # ---------------------------
+    invalidYear = False # initialize to False
+
+    # year is invalid if there are non-digits characters, or year length is 
+    # longer than 4 characters
+    import string
+    authorized_chars = string.digits
+    for char in year.strip('{').strip('}'):
+        if char not in authorized_chars: invalidYear = True
+    if len(year.strip('{').strip('}'))>4: invalidYear = True
+    
+    # 3- return clean item, and error message if needed
+    # -------------------------------------------------
+    # return error if year is missing for 'article' bib type
+    if (year == '') and (ref_type=='article'):
+        return year, (ref_nb, "missing year of article", year)
+
+    # return error if invalid year
+    elif invalidYear == True:
+        return year, (ref_nb, "invalid year", year)
+
+    # in all other cases, return no error
+    else:
+        return year, None
+
+#===============================================================================
+def cleanDOI(doi, ref_nb, ref_type):
+#===============================================================================
+    
+    # 1- cleaning:
+    # ------------
+    # we remove the http start where relevant
+    doi = doi.replace('http://dx.doi.org/','')
+    # we append one set of curly brackets around the doi if non empty
+    if doi!='':
+        doi = '{' + doi + '}'
+
+    # 2- check for invalid format:
+    # ---------------------------
+    invalidDOI = False # initialize to False
+
+    # DOI is invalid if there is a non-closed parenthesis in the final string
+    for par1, par2 in zip('({[',')}]'):
+        tt1 = doi.split(par1)
+        tt2 = doi.split(par2)
+        if len(tt1) != len(tt2): invalidDOI = True
+    
+    # 3- return clean item, and error message if needed
+    # -------------------------------------------------
+    # return error if doi is missing for 'article' bib type
+    if (doi == '') and (ref_type=='article'):
+        return doi, (ref_nb, "missing doi of article", doi)
+
+    # return error if invalid doi
+    elif invalidDOI == True:
+        return doi, (ref_nb, "invalid doi", doi)
+
+    # in all other cases, return no error
+    else:
+        return doi, None
+
+#===============================================================================
+def cleanURL(url, ref_nb, ref_type):
+#===============================================================================
+    
+    # 1- cleaning:
+    # ------------
+    # we only want the URL to be used for websites ('misc' type), so we empty the 
+    # string for all other types
+    if not ref_type.startswith('misc'):
+        url = ''
+    # we append one set of curly brackets around the URL if non empty
+    if url!='':
+        url = '{' + url + '}'
+
+    # 2- check for invalid format:
+    # ---------------------------
+    invalidURL = False # initialize to False
+
+    # URL should start with an 'http://' string
+    if ref_type.startswith('misc') and not url.startswith('{http://'): 
+        invalidURL = True
+    # URL is invalid if there is a parenthesis in the middle of the final string
+    for char in '({[)}]':
+        if char in url.strip('{').strip('}'):
+            invalidURL = True
+    
+    
+    # 3- return clean item, and error message if needed
+    # -------------------------------------------------
+    # return error if url is missing for 'misc' bib type
+    if (url == '') and (ref_type.startswith('misc')):
+        return url, (ref_nb, "missing URL for website", url)
+
+    # return error if invalid url
+    elif invalidURL == True:
+        return url, (ref_nb, "invalid URL", url)
+        
+    # in all other cases, return no error
+    else:
+        return url, None
+
+#===============================================================================
+def cleanNote(note, ref_nb, ref_type):
+#===============================================================================
+    
+    # 1- cleaning:
+    # ------------
+    # we only want the note used for websites ('misc type'), so we empty the 
+    # string for all other types
+    if not ref_type.startswith('misc'):
+        note = ''
+    # we append one set of curly brackets around the note if non-empty
+    if note!='':
+        note = '{' + note + '}'
+
+    # 2- check for invalid format:
+    # ---------------------------
+    invalidNote = False # initialize to False
+
+    # note should start with a 'Last accessed on' string
+    if ref_type.startswith('misc') and not note.startswith('{Last accessed on'): 
+        invalidNote = True
+    
+    
+    # 2- return clean item, and error message if needed
+    # -------------------------------------------------
+    # return error if note is missing for 'misc' bib type
+    if (note == '') and (ref_type.startswith('misc')):
+        return note, (ref_nb, "missing 'Last accessed on (mon) (day), (year)'"+\
+               " statement for website", note)
+
+    # return error if invalid note
+    elif invalidNote == True:
+        return note, (ref_nb, "invalid 'Last accessed on (mon) (day), (year)'"+\
+               " statement for website", note)
+        
+    # in all other cases, return no error
+    else:
+        return note, None
+
+#===============================================================================
 def cleanPages(pages, ref_nb, ref_type):
 #===============================================================================
     
@@ -237,20 +411,31 @@ def cleanPages(pages, ref_nb, ref_type):
         if len(pp)==2:
             pp[0] = pp[0].strip(' ')
             pp[1] = pp[1].strip(' ')
-            # if a page bound is missing: invalid format error
-            if pp[0]=='' or pp[1]=='': invalidPages
             pages = pp[0]+'--'+pp[1]
-        # if we have more than one '--': invalid format error
-        else:
-            invalidPages = True
+    # add a set of curly bracket around the page number(s)
+    pages = '{' + pages + '}'
 
-    # final search for unauthorized characters in the pages string:
-    # we allow only '--' and numerical characters (no puntuation, no letters)
+    # 2- check for invalid format:
+    # ---------------------------
+    invalidPages = False # initialize to False
+
+    # if we have more than one page number
+    if '--' in pages:
+        pp = pages.split('--')
+        # but if a page boundary is missing: invalid format error
+        if len(pp)==2 and (pp[0]=='{' or pp[1]=='}'): invalidPages = True
+
+        # or if we have more than one '--': invalid format error
+        elif len(pp)!=2: invalidPages = True
+
+    # we allow only '--' and digits (no puntuation, no letters, no special encoding)
     import string
-    unauthorized_chars = string.punctuation + string.ascii_letters
-    unauthorized_chars = unauthorized_chars.replace('-','') # remove '-' from list of unauthorized characters
-    for char in repr(pages).strip("'"): # to ba able to detect encoding of strange characters
-        if char in unauthorized_chars: invalidPages = True; break
+    authorized_chars = string.digits + '-'
+    # we check for authorized characters on the string representation (i.e. repr(string))
+    # to be able to check for encoded letters and characters (they start with '\' 
+    # in the string representation, but not in the string itself)
+    for char in repr(pages).strip("'").strip('{').strip('}'): 
+        if char not in authorized_chars: invalidPages = True; break
     
     # 2- return clean item, and error message if needed
     # -------------------------------------------------
@@ -277,8 +462,14 @@ def cleanNumber(number, ref_nb, ref_type):
     # replace single '-' by double '--'
     if '--' not in number and '-' in number:
         number = number.replace('-','--')
+    # add a set of curly bracket around the issue number
+    number = '{' + number + '}'
+
+    # 2- check for invalid format:
+    # ---------------------------
+    invalidNumber = False # initialize to False
+
     # in case of double '--', check if bound by two numbers always
-    invalidNumber = False
     if '--' in number:
         bounds = number.split('--')
         if bounds[0]=='' or bounds[1]=='': invalidNumber = True
@@ -288,7 +479,7 @@ def cleanNumber(number, ref_nb, ref_type):
     import string
     unauthorized_chars = string.punctuation
     unauthorized_chars = unauthorized_chars.replace('-','') # remove '-' from list of unauthorized characters
-    for char in repr(number).strip("'"): # to ba able to detect encoding of strange characters
+    for char in repr(number).strip("'").strip('{').strip('}'): # to ba able to detect encoding of strange characters
         if char in unauthorized_chars: invalidNumber = True; break
     
     # 2- return clean item, and error message if needed
@@ -311,23 +502,29 @@ def cleanVolume(volume, ref_nb, ref_type):
     
     # 1- cleaning:
     # ------------
-    # ? signs appear to occur instead of - 
+    # ? symbol appears to occur instead of - 
     volume = volume.replace('?','--')
     # replace single '-' by double '--'
     if '--' not in volume and '-' in volume:
         volume = volume.replace('-','--')
+    # add a set of curly bracket around the volume number
+    volume = '{' + volume + '}'
+ 
+    # 2- check for invalid format:
+    # ---------------------------
+    invalidVolume = False # initialize to False
+
     # in case of double '--', check if bound by two numbers always
-    invalidVolume = False
     if '--' in volume:
         bounds = volume.split('--')
-        if bounds[0]=='' or bounds[1]=='': invalidVolume = True
- 
-    # final search for unauthorized characters in the number string:
+        if bounds[0]=='{' or bounds[1]=='}': invalidVolume = True
+
     # we allow only '--' punctuation characters
     import string
     unauthorized_chars = string.punctuation
-    unauthorized_chars = unauthorized_chars.replace('-','') # remove '-' from list of unauthorized characters
-    for char in repr(volume).strip("'"): # to ba able to detect encoding of strange characters
+    unauthorized_chars = unauthorized_chars.replace('-','')
+    # we search for unauthorized characters in the 'volume' string
+    for char in repr(volume).strip("'").strip('{').strip('}'):
         if char in unauthorized_chars: invalidVolume = True; break
     
     # 2- return clean item, and error message if needed
