@@ -112,7 +112,7 @@ def main():
 
                     # Separates key from value, and cleans edges by removing
                     # empty spaces, quotation marks, and curly brackets
-                    key = stuff.split('=')[0].strip(' ').strip('"').strip('{').strip('}').strip(' ')
+                    key = stuff.split('=')[0].strip(' ').strip('"').strip('{').strip('}').strip('\t').strip(' ')
                     value  = stuff.split('=')[1].strip(',').strip(' ').strip('"').strip('{').strip('}').strip(' ')
 
                     if key=='author':
@@ -197,7 +197,6 @@ def main():
                         if year[1]!=None: invalid_refs += [year[1]] # When an invalid error is detected in year
 
 
-    print clean_entries[16]
 
     # if entries with errors were detected during the cleaning
     if len(invalid_refs)>0:
@@ -601,9 +600,11 @@ def cleanVolume(volume, ref_nb, ref_type):
 def cleanBibCiteKey(key, listAuthors, title, year):
 #===============================================================================
 
+    print key, listAuthors, year
     # compare the original key to the list of authors
     common_sub = list(lcs(key.lower(), listAuthors.lower()))
-    cs = str(common_sub[0]).strip(',').strip('.').strip(':').strip(';').strip(' ')
+    cs = str(common_sub[0]).strip('?').strip(',').strip('.').strip(':').strip(';').strip(' ')
+
     # create a clean key with the year
     startTitle  = title.split(' ')[0].strip('{{').lower()[:5].strip('-')
     clean_key_D = cs + '%s'%str(year).strip('{').strip('}')[2:4]
