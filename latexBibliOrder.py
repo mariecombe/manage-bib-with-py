@@ -9,8 +9,9 @@ Processing include:
     -- reassignation of key_name
     -- inclusion of double curly braquets in title
     -- removal of eprint, abstract, ... if any
-    -- hide url from output file, but keep it for excelBibData.py
     -- save file as latexBibliOrder.bib
+    -- promp errors when invalid format (manual modifications needed)
+    -- keep url for excelBibData.py
 """
 
 import sys, os, glob, re
@@ -27,70 +28,66 @@ def main():
 
     """
 
-    # make python get the fullpath to the current working directory
-    # and define useful folder names
+    ## Gets fullpath to current working directory
+    ## Defines useful folder names
     cwd           = os.getcwd()
     input_folder  = os.path.join(cwd, 'bib_input_files/')
     output_folder = os.path.join(cwd, 'bib_output_file/')
 
-    # list the input .bib files to read in the input folder (two steps)
-    # a- define the pattern you are looking for:
+    ## Lists the input .bib files to read in the input folder (two steps)
+    # Defines the pattern you are looking for:
     pattern       = os.path.join(input_folder, '*.bib')
-    # b- create a list of all files that fullfil this pattern
+    # Creates a list of all files that fullfil this pattern
     inFileList    = glob.glob(pattern)
     #print inFileList
 
-    # a- we warn the user
-    # b- we exit the script
+    # A - Warns the user
+    # B - Exits the script
     if len(inFileList)==0:
         print 'there are no .bib files in folder %s' %cwd
         sys.exit()
 
-    # now we proceed with cleaning the input files:
 
-    # ------------------ here the actual cleaning begins -------------------
+    ### Cleans the input files
 
-    # initialize an empty string to store clean bib_items from all files
+    # Initializes empty string to store clean bib_items from all files
     files_as_one_string = ''
 
-    # ------------------------ loop over .bib files ------------------------
-
-    # for each input file:
+    # ------------------------ Loops over .bib files ------------------------
+    # For each input file
     for filename in inFileList:
 
-        # read the content of the file as one string then close the file
+        # Reads file content as one string and closes file
         f = open(filename, 'r') # r for read-only
         files_as_one_string += f.read()
         f.close()
+    # ------------------- Exits the loop on bib files --------------------
 
-    # ------------------- we exit the loop on bib files --------------------
-
-    # split the contents into bib_item:
+    # Splits the contents into bib_item
     bib_separator = '@'
     bib_items     = files_as_one_string.split(bib_separator)
 
-    # we remove the first item which is an empty string:
+    # Removes the first item, which is an empty string
     del bib_items[0]
 
-    # ----------------- loop over unclean bib entries ----------------------
+    # ----------------- Loops over unclean bib entries ----------------------
 
-    # we initialize a matrix in which to store the product of our cleaning
-    # number of columns = number of bib entries
-    # number of rows    = number of ref items per entry
-    nbrows  = 17
+    # Initializes matrix to store the (cleaned) results
+    # Ner of columns = number of bib entries
+    # Ner of rows = number of ref items per bib entry
     nbcols  = len(bib_items)
-    # NB: because we want the array to store strings and not floats, we have
-    # to set the data type of that array to 'arbitrary object':
+    nbrows  = 17
+
+    # Sets data type of the array to 'arbitrary object' (so the array stores strings and not floats)
     clean_entries = np.array([['']*nbcols]*nbrows, dtype=object)
 
-    # we initiate a list of invalid bib references
+    # Initiates a list of invalid bib references
     invalid_refs = list()
 
-
-    # for each bib_item of the total list:
+    # For each bib_item of complete list
     for i in range(nbcols):
 
-        # split the bib_item into its ref_item (cite_key, title, ...)
+        # Splits the bib_item into its ref_item (cite_key, title, ...)
         if '\r\n' in files_as_one_string:
             ref_item_separator = '\r\n'
         else:
@@ -98,101 +95,128 @@ def main():
 
         list_ref_items     = bib_items[i].split(ref_item_separator)
 
-        # loop over the rows fro the end to the start:
+        # Loops the rows from the end to the start:
         for j,stuff in enumerate(list_ref_items):
-            
+
+            ## After detailed description of what's going on, we reach the part were things get interesting,
+            ## and surprise surprise, no description!
             if j==0:
                 bib_type     = stuff.split('{')[0]
                 bib_cite_key = stuff.split('{')[1]
                 clean_entries[0][i]   = bib_type
                 clean_entries[1][i]   = bib_cite_key
-                #print bib_type, bib_cite_key
+
             else:
                 if len(stuff.split('='))==2: # if the line that is read contains useful info
                                              # i.e. if it is not a single curly bracket or empty line
 
-                    # we separate the key from the value, and we clean their edges
-                    # by removing the empty spaces, quotation marks, curly brackets
+                    # Separates key from value, and cleans edges by removing
+                    # empty spaces, quotation marks, and curly brackets
                     key = stuff.split('=')[0].strip(' ').strip('"').strip('{').strip('}').strip(' ')
                     value  = stuff.split('=')[1].strip(',').strip(' ').strip('"').strip('{').strip('}').strip(' ')
-                    #print key, value
-                 
-                    if key=='author':      
+
+                    if key=='author':
                         author = cleanName(value, i, bib_type)
                         clean_entries[2][i] = author[0]
-                        if author[1]!=None: invalid_refs += [author[1]] # if we detected invalid author
-                    if key=='editor':      
+                        if author[1]!=None: invalid_refs += [author[1]] # When an invalid error is detected in author
+
+                    if key=='editor':
                         editor = cleanName(value, i, bib_type)
                         clean_entries[3][i] = editor[0]
-                        if editor[1]!=None: invalid_refs += [editor[1]] # if we detected invalid editor
-                    if key=='title':       
-                        title  = cleanTitle(value, i, bib_type)   
+                        if editor[1]!=None: invalid_refs += [editor[1]] # When an invalid error is detected in editor
+
+                    if key=='title':
+                        title  = cleanTitle(value, i, bib_type)
                         clean_entries[4][i] = title[0]
-                        if title[1]!=None: invalid_refs += [title[1]] # if we detected invalid title
-                    if key=='booktitle':   
+                        if title[1]!=None: invalid_refs += [title[1]] # When an invalid error is detected in title
+
+                    if key=='booktitle':
                         btitle = cleanTitle(value, i, bib_type)
-                        clean_entries[5][i] = btitle
-                        if btitle[1]!=None: invalid_refs += [btitle[1]] # if we detected invalid book title
-                    if key=='chapter':     clean_entries[6][i] = value
-                    if key=='institution': clean_entries[7][i] = value
-                    if key=='school':      clean_entries[8][i] = value
-                    if key=='journal':     clean_entries[9][i] = value
-                    if key=='volume':      
+                        clean_entries[5][i] = btitle[0]
+                        if btitle[1]!=None: invalid_refs += [btitle[1]] # When an invalid error is detected in booktitle
+              '''
+                    if key=='chapter':
+                        chapter = cleanChapter(value, i, bib_type)
+                        clean_entries[6][i] = chapter[0]
+                        if chapter[1]!=None: invalid_refs += [chapter[1]] # When an invalid error is detected in chapter
+
+                    if key=='institution':
+                        institution = cleanInstitution(value, i, bib_type)
+                        clean_entries[7][i] = institution[0]
+                        if institution[1]!=None: invalid_refs += [institution[1]] # When an invalid error is detected in institution
+
+                    if key=='school':
+                        school = cleanSchool(value, i, bib_type)
+                        clean_entries[8][i] = school[0]
+                        if school[1]!=None: invalid_refs += [school[1]] # When an invalid error is detected in school
+
+                    if key=='journal':
+                        journal = cleanJournal(value, i, bib_type)
+                        clean_entries[9][i] = journal[0]
+                        if journal[1]!=None: invalid_refs += [journal[1]] # When an invalid error is detected in journal
+              '''
+                    if key=='volume':
                         volume = cleanVolume(value, i, bib_type)
                         clean_entries[10][i] = volume[0]
-                        if volume[1]!=None: invalid_refs += [volume[1]] # if we detected invalid volume
-                    if key=='number':      
+                        if volume[1]!=None: invalid_refs += [volume[1]] # When an invalid error is detected in volume
+
+                    if key=='number':
                         number = cleanNumber(value, i, bib_type)
                         clean_entries[11][i] = number[0]
-                        if number[1]!=None: invalid_refs += [number[1]] # if we detected invalid number
+                        if number[1]!=None: invalid_refs += [number[1]] # When an invalid error is detected in number
+
                     if key=='pages':
                         pages = cleanPages(value, i, bib_type)
                         clean_entries[12][i] = pages[0]
-                        if pages[1]!=None: invalid_refs += [pages[1]] # if we detected invalid pages
-                    if key=='note': 
+                        if pages[1]!=None: invalid_refs += [pages[1]] # When an invalid error is detected in pages
+
+                    if key=='note':
                         note = cleanNote(value, i, bib_type)
                         clean_entries[13][i] = note[0]
-                        if note[1]!=None: invalid_refs += [note[1]] # if we detected invalid note
+                        if note[1]!=None: invalid_refs += [note[1]] # When an invalid error is detected in note
+
                     if key=='url':
                         url = cleanURL(value, i, bib_type)
                         clean_entries[14][i] = url[0]
-                        if url[1]!=None: invalid_refs += [url[1]] # if we detected invalid URL
+                        if url[1]!=None: invalid_refs += [url[1]] # When an invalid error is detected in URL
+
                     if key=='doi':
                         doi = cleanDOI(value, i, bib_type)
                         clean_entries[15][i] = doi[0]
-                        if doi[1]!=None: invalid_refs += [doi[1]] # if we detected invalid doi
+                        if doi[1]!=None: invalid_refs += [doi[1]] # When an invalid error is detected in doi
+
                     if key=='year':
                         year = cleanYear(value, i, bib_type)
                         clean_entries[16][i] = year[0]
-                        if year[1]!=None: invalid_refs += [year[1]] # if we detected invalid year
+                        if year[1]!=None: invalid_refs += [year[1]] # When an invalid error is detected in year
 
 
     #print clean_entries[6]
 
 
-    # after reading all the information for all bib items, and having 
+    # after reading all the information for all bib items, and having
     # stored it in the table we clean the bib cite key items
-    for i in range(nbcols):    
+    for i in range(nbcols):
         try:
-            clean_entries[1][i] = cleanBibCiteKey(clean_entries[1][i], 
-                                                  clean_entries[2][i], 
-                                                  clean_entries[4][i], 
+            clean_entries[1][i] = cleanBibCiteKey(clean_entries[1][i],
+                                                  clean_entries[2][i],
+                                                  clean_entries[4][i],
                                                   clean_entries[16][i])
         except IndexError: # except "when the computer cannot find an author", then do:
             try:
-                clean_entries[1][i] = cleanBibCiteKey(clean_entries[1][i], 
-                                                      clean_entries[3][i], 
-                                                      clean_entries[4][i], 
+                clean_entries[1][i] = cleanBibCiteKey(clean_entries[1][i],
+                                                      clean_entries[3][i],
+                                                      clean_entries[4][i],
                                                       clean_entries[16][i])
             except IndexError: # except "when the computer cannot find an editor", then do:
-                clean_entries[1][i] = cleanBibCiteKey(clean_entries[1][i], 
-                                                      clean_entries[7][i], 
-                                                      clean_entries[4][i], 
+                clean_entries[1][i] = cleanBibCiteKey(clean_entries[1][i],
+                                                      clean_entries[7][i],
+                                                      clean_entries[4][i],
                                                       clean_entries[16][i])
 
 
     # if entries with errors were detected during the cleaning
-    if len(invalid_refs)>0: 
+    if len(invalid_refs)>0:
         # we print warning messages for the user to take action
         print 'User modifications needed:'
         for bibitem_nb, error_message, clean_value in invalid_refs:
@@ -246,7 +270,7 @@ def main():
 #===============================================================================
 def cleanYear(year, ref_nb, ref_type):
 #===============================================================================
-    
+
     # 1- cleaning:
     # ------------
     # we append one set of curly brackets around the year if non empty
@@ -257,14 +281,14 @@ def cleanYear(year, ref_nb, ref_type):
     # ---------------------------
     invalidYear = False # initialize to False
 
-    # year is invalid if there are non-digits characters, or year length is 
+    # year is invalid if there are non-digits characters, or year length is
     # longer than 4 characters
     import string
     authorized_chars = string.digits
     for char in year.strip('{').strip('}'):
         if char not in authorized_chars: invalidYear = True
     if len(year.strip('{').strip('}'))>4: invalidYear = True
-    
+
     # 3- return clean item, and error message if needed
     # -------------------------------------------------
     # return error if year is missing for 'article' bib type
@@ -282,7 +306,7 @@ def cleanYear(year, ref_nb, ref_type):
 #===============================================================================
 def cleanDOI(doi, ref_nb, ref_type):
 #===============================================================================
-    
+
     # 1- cleaning:
     # ------------
     # we remove the http start where relevant
@@ -300,7 +324,7 @@ def cleanDOI(doi, ref_nb, ref_type):
         tt1 = doi.split(par1)
         tt2 = doi.split(par2)
         if len(tt1) != len(tt2): invalidDOI = True
-    
+
     # 3- return clean item, and error message if needed
     # -------------------------------------------------
     # return error if doi is missing for 'article' bib type
@@ -318,10 +342,10 @@ def cleanDOI(doi, ref_nb, ref_type):
 #===============================================================================
 def cleanURL(url, ref_nb, ref_type):
 #===============================================================================
-    
+
     # 1- cleaning:
     # ------------
-    # we only want the URL to be used for websites ('misc' type), so we empty the 
+    # we only want the URL to be used for websites ('misc' type), so we empty the
     # string for all other types
     if not ref_type.startswith('misc'):
         url = ''
@@ -334,14 +358,14 @@ def cleanURL(url, ref_nb, ref_type):
     invalidURL = False # initialize to False
 
     # URL should start with an 'http://' string
-    if ref_type.startswith('misc') and not url.startswith('{http://'): 
+    if ref_type.startswith('misc') and not url.startswith('{http://'):
         invalidURL = True
     # URL is invalid if there is a parenthesis in the middle of the final string
     for char in '({[)}]':
         if char in url.strip('{').strip('}'):
             invalidURL = True
-    
-    
+
+
     # 3- return clean item, and error message if needed
     # -------------------------------------------------
     # return error if url is missing for 'misc' bib type
@@ -351,7 +375,7 @@ def cleanURL(url, ref_nb, ref_type):
     # return error if invalid url
     elif invalidURL == True:
         return url, (ref_nb, "invalid URL", url)
-        
+
     # in all other cases, return no error
     else:
         return url, None
@@ -359,10 +383,10 @@ def cleanURL(url, ref_nb, ref_type):
 #===============================================================================
 def cleanNote(note, ref_nb, ref_type):
 #===============================================================================
-    
+
     # 1- cleaning:
     # ------------
-    # we only want the note used for websites ('misc type'), so we empty the 
+    # we only want the note used for websites ('misc type'), so we empty the
     # string for all other types
     if not ref_type.startswith('misc'):
         note = ''
@@ -375,10 +399,10 @@ def cleanNote(note, ref_nb, ref_type):
     invalidNote = False # initialize to False
 
     # note should start with a 'Last accessed on' string
-    if ref_type.startswith('misc') and not note.startswith('{Last accessed on'): 
+    if ref_type.startswith('misc') and not note.startswith('{Last accessed on'):
         invalidNote = True
-    
-    
+
+
     # 2- return clean item, and error message if needed
     # -------------------------------------------------
     # return error if note is missing for 'misc' bib type
@@ -390,7 +414,7 @@ def cleanNote(note, ref_nb, ref_type):
     elif invalidNote == True:
         return note, (ref_nb, "invalid 'Last accessed on (mon) (day), (year)'"+\
                " statement for website", note)
-        
+
     # in all other cases, return no error
     else:
         return note, None
@@ -398,7 +422,7 @@ def cleanNote(note, ref_nb, ref_type):
 #===============================================================================
 def cleanPages(pages, ref_nb, ref_type):
 #===============================================================================
-    
+
     # 1- cleaning:
     # ------------
     invalidPages = False
@@ -432,11 +456,11 @@ def cleanPages(pages, ref_nb, ref_type):
     import string
     authorized_chars = string.digits + '-'
     # we check for authorized characters on the string representation (i.e. repr(string))
-    # to be able to check for encoded letters and characters (they start with '\' 
+    # to be able to check for encoded letters and characters (they start with '\'
     # in the string representation, but not in the string itself)
-    for char in repr(pages).strip("'").strip('{').strip('}'): 
+    for char in repr(pages).strip("'").strip('{').strip('}'):
         if char not in authorized_chars: invalidPages = True; break
-    
+
     # 2- return clean item, and error message if needed
     # -------------------------------------------------
     # return error if the ref item is not provided but is compulsory for a certain bib type
@@ -454,10 +478,10 @@ def cleanPages(pages, ref_nb, ref_type):
 #===============================================================================
 def cleanNumber(number, ref_nb, ref_type):
 #===============================================================================
-    
+
     # 1- cleaning:
     # ------------
-    # ? signs appear to occur instead of - 
+    # ? signs appear to occur instead of -
     number = number.replace('?','--')
     # replace single '-' by double '--'
     if '--' not in number and '-' in number:
@@ -481,7 +505,7 @@ def cleanNumber(number, ref_nb, ref_type):
     unauthorized_chars = unauthorized_chars.replace('-','') # remove '-' from list of unauthorized characters
     for char in repr(number).strip("'").strip('{').strip('}'): # to ba able to detect encoding of strange characters
         if char in unauthorized_chars: invalidNumber = True; break
-    
+
     # 2- return clean item, and error message if needed
     # -------------------------------------------------
     # return an error if the number is not provided for an article
@@ -499,17 +523,17 @@ def cleanNumber(number, ref_nb, ref_type):
 #===============================================================================
 def cleanVolume(volume, ref_nb, ref_type):
 #===============================================================================
-    
+
     # 1- cleaning:
     # ------------
-    # ? symbol appears to occur instead of - 
+    # ? symbol appears to occur instead of -
     volume = volume.replace('?','--')
     # replace single '-' by double '--'
     if '--' not in volume and '-' in volume:
         volume = volume.replace('-','--')
     # add a set of curly bracket around the volume number
     volume = '{' + volume + '}'
- 
+
     # 2- check for invalid format:
     # ---------------------------
     invalidVolume = False # initialize to False
@@ -526,7 +550,7 @@ def cleanVolume(volume, ref_nb, ref_type):
     # we search for unauthorized characters in the 'volume' string
     for char in repr(volume).strip("'").strip('{').strip('}'):
         if char in unauthorized_chars: invalidVolume = True; break
-    
+
     # 2- return clean item, and error message if needed
     # -------------------------------------------------
     # return no error if the volume is not provided in case of an article
@@ -544,15 +568,15 @@ def cleanVolume(volume, ref_nb, ref_type):
 #===============================================================================
 def cleanBibCiteKey(key, listAuthors, title, year):
 #===============================================================================
-    
+
     # compare the original key to the list of authors
     common_sub = list(lcs(key.lower(), listAuthors.lower()))
-    
+
     # create a clean key with the year
     startTitle  = title.split(' ')[0].strip('{{').lower()[:5].strip('-')
-    clean_key_D = str(common_sub[0]) + '%s'%str(year)[2:4] + startTitle 
+    clean_key_D = str(common_sub[0]) + '%s'%str(year)[2:4] + startTitle
     clean_key_M = str(common_sub[0]) + ':%s'%year
-    
+
     return clean_key_D
 
 #===============================================================================
@@ -675,61 +699,6 @@ def cleanTitle(title, ref_nb, ref_type):
 def clean_bib(list_ref_items):
 #===============================================================================
 
-    """
-    clean_bib() cleans 1 bibliographic entry that has been separated into its
-    ref_items NB: I assume here we separated the bib_item string into its
-    numerous ref_item strings using the return symbols ('\n') as separator
-
-    For example, we provide the following of ref_items to the function:
-    [ 'article{Mascle1990271',
-    'title = "Shallow structure and (...) on continuous reflection profiles "',
-    'journal = "Marine Geology "',
-    'volume = "94"',
-    'number = "4"',
-    'pages = "271 - 299"',
-    'year = "1990"',
-    'note = ""',
-    'issn = "0025-3227"',
-    'doi = "http://dx.doi.org/10.1016/0025-3227(90)90060-W"',
-    'url = "http://www.sciencedirect.com/science/article/pii/002532279090060W"',
-    'author = "Jean Mascle and Laure Martin"',
-    'abstract = "A dense grid of (...) subduction is still active. "\r\n}\r\n']
-
-    We want to convert the ref_items with the following rules:
-    - for all ref_items:
-        * we use { } instead of "".
-        * we write as ref_item = {Sth sth sth}, instead of other formats that
-          are more chunky. Note the position of the brackets and that of the
-          comma and the spacing among elements above.
-        * no ref_item has spaces at the beginning or the end of the {}.
-
-    - we format some specific ref_items:
-        * cite_key  last_name:YYa
-        * title     title = {{title_text}}
-        * author    author = {Last_name1, Initials, Last_name2, Initials, etc}
-        * pages     pages = {number--number}
-        * year      year = {YYYY}
-        * volume    volume = {volume_string}
-        * number    number = {number}
-
-    - we remove the following ref_items:
-        abstract, type, series, organization, note, annote, crossref, edition,
-        howpublished, month, issn
-
-    - we reorder the ref_items inside each bib_entry as follows
-        @entry_type{cite_key,
-        author,
-        title,
-        journal,
-        volume,
-        number (if any),
-        pages,
-        doi (if any),
-        year
-        }
-
-    """
-
     # get the cite_key (it's the first ref_item read from the bib_item)
     cite_key = list_ref_items[0]     # e.g. cite_key is now 'article{Mascle1990271'
 
@@ -750,30 +719,8 @@ if __name__=='__main__':
 #===============================================================================
 
 """
-Some possible features to add to the main script:
--------------------------------------------------
-
 I don't know how difficult would this be, but... what about warning if it finds
 entries that have largely coincidental strings, i.e., duplicates but that have
 mistakes on them, that a super thorough examination (one to one) won't detect.
-
-I think this is too difficult to automate if we have done the cleaning to the
-max. At the end, the user will anyway look at the sorted bibliography to get
-the cite_keys for LaTex, and he/she can detect "hidden" duplicates and delete
-them (they will follow each other in the clean list, since such duplicates
-should have almost same authors, year, title)
-
-
-Define what an individual bibtex entry is:
-    bib_item = []
-    key_string = "@"
-    separator = re.findall(r'{@}',exampleString)
-
-def bib_item():
-    for key_string in bib_file:
-        if key_string()
-
-Find everthing between @, and include each in bib_item including @ in the first
-one, and leaving out the second one
 
 """
