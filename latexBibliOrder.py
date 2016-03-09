@@ -196,7 +196,6 @@ def main():
                         clean_entries[16][i] = year[0]
                         if year[1]!=None: invalid_refs += [year[1]] # When an invalid error is detected in year
 
-    print clean_entries[15]
 
 
     #---------------- WARNING THE USER ABOUT MISTAKES AND GAPS -----------------
@@ -204,14 +203,24 @@ def main():
     # if entries with errors were detected during the cleaning
     if len(invalid_refs)>0:
         # we print warning messages for the user to take action
-        print 'User modifications needed:'
+        print '\nUser modifications required:'
         for bibitem_nb, error_message, clean_value in invalid_refs:
             cite_key = clean_entries[1][bibitem_nb]
             print 'WARNING! %20s : %s '%(cite_key, error_message) +\
             '(%s)'%clean_value.strip(',').strip('{').strip('}')
 
     # check for gaps:
-    # if something is missing (e.g. an author for an article?) then warn the user to add it
+    gaps_info = []
+    for i,cite_key in enumerate(clean_entries[1]):
+        bib_entry = retrieve_entry(clean_entries, i)
+        gaps_info += check_gaps(bib_entry)
+
+    # if entries with gaps were detected
+    if len(gaps_info)>0:
+        # we print warning messages for the user to take action
+        print '\nGap-filling required:'
+        for cite_key, gap_message in gaps_info:
+            print 'GAPS!    %20s : %s '%(cite_key, gap_message)
 
     #------------------- FINISHING TO CLEAN THE CITE KEYS ----------------------
 
@@ -300,10 +309,9 @@ def main():
             if duplicate_positions[cite_key] != []:
                 positions = duplicate_positions[cite_key]
                 duplicate_entries = [retrieve_entry(clean_entries,p) for p in positions]
-                print duplicate_entries
                 best_entry = merge_entries(duplicate_entries)
                 sorted_refs += [best_entry]
-                print '\nWARNING: We merged duplicate entries for %s into'%cite_key, best_entry
+                print '\nWARNING: We merged %i duplicate entries for %s'%(len(positions),cite_key)
 
             # else, we store the information as is
             else:
@@ -799,6 +807,101 @@ def clean_bib(list_ref_items):
 
     # the function returns that list
     return list_clean_ref_items
+
+#===============================================================================
+def check_gaps(bib_entry):
+#===============================================================================
+    bib_type = bib_entry[0]
+    cite_key = bib_entry[1]
+
+    # we initialize the error message list
+    entry_gaps = []
+
+    # for all articles:
+    if bib_type == 'article':
+        if bib_entry[2] == '': entry_gaps += [(cite_key, 'Missing author of %s'%bib_type)]
+        if bib_entry[4] == '': entry_gaps += [(cite_key, 'Missing title of %s'%bib_type)]
+        if bib_entry[9] == '': entry_gaps += [(cite_key, 'Missing journal of %s'%bib_type)]
+        #if bib_entry[10] == '': entry_gaps += [(cite_key, 'Missing volume of %s'%bib_type)]
+        #if bib_entry[12] == '': entry_gaps += [(cite_key, 'Missing pages of %s'%bib_type)]
+        if bib_entry[16] == '': entry_gaps += [(cite_key, 'Missing year of %s'%bib_type)]
+
+    # for all books:
+    elif bib_type == 'book':
+        if (bib_entry[2] == '') and (bib_entry[3] == ''): 
+            entry_gaps += [(cite_key, 'Missing author OR editor of %s'%bib_type)]
+        if bib_entry[4] == '': entry_gaps += [(cite_key, 'Missing title of %s'%bib_type)]
+        if bib_entry[16] == '': entry_gaps += [(cite_key, 'Missing year of %s'%bib_type)]
+        #if bib_entry[17] == '': entry_gaps += [(cite_key, 'Missing publisher of %s'%bib_type)]
+
+    # for all booklets:
+    elif bib_type == 'booklet':
+        if bib_entry[4] == '': entry_gaps += [(cite_key, 'Missing title of %s'%bib_type)]
+
+    # for all book chapters without their own titles:
+    elif bib_type == 'inbook':
+        if (bib_entry[2] == '') and (bib_entry[3] == ''): 
+            entry_gaps += [(cite_key, 'Missing author OR editor of %s'%bib_type)]
+        if (bib_entry[6] == '') and (bib_entry[12]==''): 
+            entry_gaps += [(cite_key, 'Missing book chapter OR pages of %s'%bib_type)]
+        if bib_entry[4] == '': entry_gaps += [(cite_key, 'Missing title of %s'%bib_type)]
+        if bib_entry[16] == '': entry_gaps += [(cite_key, 'Missing year of %s'%bib_type)]
+        #if bib_entry[17] == '': entry_gaps += [(cite_key, 'Missing publisher of %s'%bib_type)]
+
+    # for all book chapters with their own title:
+    elif bib_type == 'incollection':
+        if bib_entry[2] == '': entry_gaps += [(cite_key, 'Missing author of %s'%bib_type)]
+        if bib_entry[4] == '': entry_gaps += [(cite_key, 'Missing title of %s'%bib_type)]
+        if bib_entry[5] == '': entry_gaps += [(cite_key, 'Missing book title of %s'%bib_type)]
+        if bib_entry[16] == '': entry_gaps += [(cite_key, 'Missing year of %s'%bib_type)]
+        #if bib_entry[17] == '': entry_gaps += [(cite_key, 'Missing publisher of %s'%bib_type)]
+
+    # for all articles of a conference proceedings:
+    elif bib_type == 'inproceedings':
+        if bib_entry[2] == '': entry_gaps += [(cite_key, 'Missing author of %s'%bib_type)]
+        if bib_entry[4] == '': entry_gaps += [(cite_key, 'Missing title of %s'%bib_type)]
+        if bib_entry[5] == '': entry_gaps += [(cite_key, 'Missing book title of %s'%bib_type)]
+        if bib_entry[16] == '': entry_gaps += [(cite_key, 'Missing year of %s'%bib_type)]
+
+    # for all manuals:
+    elif bib_type == 'manual':
+        if bib_entry[4] == '': entry_gaps += [(cite_key, 'Missing title of %s'%bib_type)]
+
+    # for all MSc or PhD theses:
+    elif bib_type == 'mastersthesis' or bib_type == 'phdthesis':
+        if bib_entry[2] == '': entry_gaps += [(cite_key, 'Missing author of %s'%bib_type)]
+        if bib_entry[4] == '': entry_gaps += [(cite_key, 'Missing title of %s'%bib_type)]
+        if bib_entry[8] == '': entry_gaps += [(cite_key, 'Missing school of %s'%bib_type)]
+        if bib_entry[16] == '': entry_gaps += [(cite_key, 'Missing year of %s'%bib_type)]
+
+    # for other kind of publication (websites, databases, maps, etc):
+    elif bib_type == 'misc':
+        if bib_entry[13] == '': entry_gaps += [(cite_key, 'Missing note of %s'%bib_type)]
+
+    # for an entire proceedings of a conference:
+    elif bib_type == 'proceedings':
+        if bib_entry[4] == '': entry_gaps += [(cite_key, 'Missing title of %s'%bib_type)]
+        if bib_entry[16] == '': entry_gaps += [(cite_key, 'Missing year of %s'%bib_type)]
+
+    # for all technical reports from educational, commercial or 
+    # standardization institution:
+    elif bib_type == 'techreport':
+        if bib_entry[2] == '': entry_gaps += [(cite_key, 'Missing author of %s'%bib_type)]
+        if bib_entry[4] == '': entry_gaps += [(cite_key, 'Missing title of %s'%bib_type)]
+        if bib_entry[7] == '': entry_gaps += [(cite_key, 'Missing institution of %s'%bib_type)]
+        if bib_entry[16] == '': entry_gaps += [(cite_key, 'Missing year of %s'%bib_type)]
+
+    # for all unpublished articles/books/theses, etc:
+    elif bib_type == 'unpublished':
+        if bib_entry[2] == '': entry_gaps += [(cite_key, 'Missing author of %s'%bib_type)]
+        if bib_entry[4] == '': entry_gaps += [(cite_key, 'Missing title of %s'%bib_type)]
+        if bib_entry[13] == '': entry_gaps += [(cite_key, 'Missing note of %s'%bib_type)]
+
+    # for wrong types:
+    else:
+        entry_gaps += [(cite_key, 'Wrong reference type: %s'%bib_type)]
+
+    return entry_gaps
 
 #===============================================================================
 def merge_entries(list_of_entries):
