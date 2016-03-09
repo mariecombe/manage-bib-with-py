@@ -14,7 +14,7 @@ Processing include:
     -- keep url for excelBibData.py
 """
 
-import sys, os, glob, re
+import sys, os, glob, re, string
 import numpy as np
 from operator import itemgetter
 
@@ -134,7 +134,12 @@ def main():
                         btitle = cleanTitle(value, i, bib_type)
                         clean_entries[5][i] = btitle[0]
                         if btitle[1]!=None: invalid_refs += [btitle[1]] # When an invalid error is detected in booktitle
-              '''
+                    if key=='chapter':     clean_entries[6][i] = value
+                    if key=='institution': clean_entries[7][i] = value
+                    if key=='school':      clean_entries[8][i] = value
+                    if key=='journal':     clean_entries[9][i] = value
+
+                    '''
                     if key=='chapter':
                         chapter = cleanChapter(value, i, bib_type)
                         clean_entries[6][i] = chapter[0]
@@ -144,6 +149,7 @@ def main():
                         institution = cleanInstitution(value, i, bib_type)
                         clean_entries[7][i] = institution[0]
                         if institution[1]!=None: invalid_refs += [institution[1]] # When an invalid error is detected in institution
+                        #NB: we want the key to match the insitution, in case of "misc" references
 
                     if key=='school':
                         school = cleanSchool(value, i, bib_type)
@@ -154,7 +160,7 @@ def main():
                         journal = cleanJournal(value, i, bib_type)
                         clean_entries[9][i] = journal[0]
                         if journal[1]!=None: invalid_refs += [journal[1]] # When an invalid error is detected in journal
-              '''
+                    '''
                     if key=='volume':
                         volume = cleanVolume(value, i, bib_type)
                         clean_entries[10][i] = volume[0]
@@ -191,7 +197,16 @@ def main():
                         if year[1]!=None: invalid_refs += [year[1]] # When an invalid error is detected in year
 
 
-    #print clean_entries[6]
+    print clean_entries[16]
+
+    # if entries with errors were detected during the cleaning
+    if len(invalid_refs)>0:
+        # we print warning messages for the user to take action
+        print 'User modifications needed:'
+        for bibitem_nb, error_message, clean_value in invalid_refs:
+            cite_key = clean_entries[1][bibitem_nb]
+            print 'WARNING! %20s : %s '%(cite_key, error_message) +\
+            '(%s)'%clean_value.strip(',').strip('{').strip('}')
 
 
     # after reading all the information for all bib items, and having
@@ -215,23 +230,40 @@ def main():
                                                       clean_entries[16][i])
 
 
-    # if entries with errors were detected during the cleaning
-    if len(invalid_refs)>0:
-        # we print warning messages for the user to take action
-        print 'User modifications needed:'
-        for bibitem_nb, error_message, clean_value in invalid_refs:
-            cite_key = clean_entries[1][bibitem_nb]
-            print 'WARNING! %20s : %s '%(cite_key, error_message) +\
-            '(%s)'%clean_value.strip(',').strip('{').strip('}')
+    # let's assign a letter to the keys when same author has published few times in
+    # the same year
+    print clean_entries[1]
 
-    # clean the ref_items and store them into out matrix
-    #clean_entries[column,:] = clean_bib(list_ref_items)
-    # ---------------- we exit the loop on bib entries ---------------------
+    for i in range(nbcols):
+        #clean_entries[1][i] = assignLetter(clean_entries[1][i], clean_entries[1])
 
+        # count the number of times where clean key occurs in the entire list of keys:
+        count = 0
+        listEqualRef = []
+        for pos,k in enumerate(clean_entries[1]):
+            # we compare k with key:
+            if k == clean_entries[1][i]: 
+                count += 1
+                listEqualRef += [(k, pos, clean_entries[4][pos].lower())]
+
+        listEqualRef = sorted(listEqualRef, key=itemgetter(2))
+
+        # if this count > 1: we assign a letter to the key
+        alphabet = string.ascii_lowercase
+        if count > 1:
+            counter2 = 0
+            for k,pos,tit in listEqualRef:
+                clean_entries[1][pos] = k + alphabet[counter2]
+                counter2 += 1 
+                print clean_entries[1][pos], tit
+    #print clean_entries[1]
+
+    # sort alphabetically
+    #1- using the bib_key (author and year)
+    #new_list_cite_keys = sorted(list_cite_keys)
 
     # Finally: remove duplicates from matrix
 
-    # sort alphabetically
 
     # check for gaps:
     # if something is missing (e.g. an author for an article?) then warn the user to add it
@@ -571,13 +603,19 @@ def cleanBibCiteKey(key, listAuthors, title, year):
 
     # compare the original key to the list of authors
     common_sub = list(lcs(key.lower(), listAuthors.lower()))
-
+    cs = str(common_sub[0]).strip(',').strip('.').strip(':').strip(';').strip(' ')
     # create a clean key with the year
     startTitle  = title.split(' ')[0].strip('{{').lower()[:5].strip('-')
-    clean_key_D = str(common_sub[0]) + '%s'%str(year)[2:4] + startTitle
-    clean_key_M = str(common_sub[0]) + ':%s'%year
+    clean_key_D = cs + '%s'%str(year).strip('{').strip('}')[2:4]
+    clean_key_M = cs + ':%s'%year
 
     return clean_key_D
+
+#===============================================================================
+def assignLetter(key, list_of_keys):
+#===============================================================================
+
+    return None
 
 #===============================================================================
 def lcs(S,T):
