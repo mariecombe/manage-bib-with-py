@@ -196,7 +196,10 @@ def main():
                         clean_entries[16][i] = year[0]
                         if year[1]!=None: invalid_refs += [year[1]] # When an invalid error is detected in year
 
+    print clean_entries[15]
 
+
+    #---------------- WARNING THE USER ABOUT MISTAKES AND GAPS -----------------
 
     # if entries with errors were detected during the cleaning
     if len(invalid_refs)>0:
@@ -207,6 +210,10 @@ def main():
             print 'WARNING! %20s : %s '%(cite_key, error_message) +\
             '(%s)'%clean_value.strip(',').strip('{').strip('}')
 
+    # check for gaps:
+    # if something is missing (e.g. an author for an article?) then warn the user to add it
+
+    #------------------- FINISHING TO CLEAN THE CITE KEYS ----------------------
 
     # after reading all the information for all bib items, and having
     # stored it in the table we clean the bib cite key items
@@ -231,41 +238,82 @@ def main():
 
     # let's assign a letter to the keys when same author has published few times in
     # the same year
-    print clean_entries[1]
+    duplicate_positions = dict()
+    for i,key in enumerate(clean_entries[1]):
 
-    for i in range(nbcols):
-        #clean_entries[1][i] = assignLetter(clean_entries[1][i], clean_entries[1])
-
-        # count the number of times where clean key occurs in the entire list of keys:
-        count = 0
+        # initialize some variables
         listEqualRef = []
-        for pos,k in enumerate(clean_entries[1]):
-            # we compare k with key:
-            if k == clean_entries[1][i]: 
-                count += 1
-                listEqualRef += [(k, pos, clean_entries[4][pos].lower())]
+        alphabet = string.ascii_lowercase
+        pos_duplicates = []
 
+        # we loop over all possible cite_keys from all files
+        for position,k in enumerate(clean_entries[1]):
+
+            # if we find other references with the same author and year as our 
+            # entry, we add it to a list
+            if k == key: 
+                title = clean_entries[4][position].lower()
+                listEqualRef += [[k, position, title, False]]
+
+        # we sort the list in alphabetical order using the lower case titles
         listEqualRef = sorted(listEqualRef, key=itemgetter(2))
 
-        # if this count > 1: we assign a letter to the key
-        alphabet = string.ascii_lowercase
-        if count > 1:
-            counter2 = 0
-            for k,pos,tit in listEqualRef:
-                clean_entries[1][pos] = k + alphabet[counter2]
-                counter2 += 1 
-                print clean_entries[1][pos], tit
-    #print clean_entries[1]
+        # if the reference is a duplicate, we modify its 'duplicate' flag to 'True'
+        for r,ref in enumerate(listEqualRef):
+            other_titles = [item[2] for x,item in enumerate(listEqualRef) if x!=r]
+            if ref[2] in other_titles:
+                listEqualRef[r][3] = True
+                # if not already done, we append the duplicate position to a list
+                if ref[1] not in pos_duplicates:
+                    pos_duplicates += [listEqualRef[r][1]]
 
-    # sort alphabetically
-    #1- using the bib_key (author and year)
-    #new_list_cite_keys = sorted(list_cite_keys)
+        # we append a letter to the cite_keys with same author and year if 
+        # there is more than one unique publication for that author x year
+        unique_titles = set([r[2] for r in listEqualRef])
+        if len(unique_titles) > 1:
+            counter = -1
+            for k,pos,tit,dup in listEqualRef:
+                if dup==False: counter += 1 
+                clean_entries[1][pos] = k + alphabet[counter]
+                #print clean_entries[1][pos], tit
 
-    # Finally: remove duplicates from matrix
+        # we store the duplicate entries position in a dictionary for later use
+        duplicate_positions[clean_entries[1][i]] = pos_duplicates
+    
+    #---------------------------------------------------------------------------
 
+    # we translate the table of entries into a list of entries, in order to
+    # 1- merge the duplicate bib entries
+    # 2- sort references alphabetically
 
-    # check for gaps:
-    # if something is missing (e.g. an author for an article?) then warn the user to add it
+    # we initialize the final list
+    sorted_refs = []
+
+    # we loop over all bib entries:
+    for i,cite_key in enumerate(clean_entries[1]):
+
+        # if the reference is not already stored in the final list:
+        if cite_key not in [k[1] for k in sorted_refs]:
+
+            # if there are duplicates for that cite_key, we store the merged 
+            # information from all duplicates
+            if duplicate_positions[cite_key] != []:
+                positions = duplicate_positions[cite_key]
+                duplicate_entries = [retrieve_entry(clean_entries,p) for p in positions]
+                print duplicate_entries
+                best_entry = merge_entries(duplicate_entries)
+                sorted_refs += [best_entry]
+                print '\nWARNING: We merged duplicate entries for %s into'%cite_key, best_entry
+
+            # else, we store the information as is
+            else:
+                sorted_refs += [retrieve_entry(clean_entries, i)]
+
+    # we sort the list of bib entries using the unique cite_keys:
+    sorted_refs = sorted(sorted_refs, key=itemgetter(1))
+    #print [r[1] for r in sorted_refs]
+
+    #---------------------------------------------------------------------------
 
     # initialize an output file, which will be stored in the 'output' folder
 
@@ -275,7 +323,7 @@ def main():
     #res.close()
 
 
-    # write all non-duplicates, sorted clean bib_items to the master.bib file:
+    # write clean bib_items to the master.bib file:
     # NB: what you write is entry_type dependant
 
     #for ...
@@ -600,7 +648,7 @@ def cleanVolume(volume, ref_nb, ref_type):
 def cleanBibCiteKey(key, listAuthors, title, year):
 #===============================================================================
 
-    print key, listAuthors, year
+    #print key, listAuthors, year
     # compare the original key to the list of authors
     common_sub = list(lcs(key.lower(), listAuthors.lower()))
     cs = str(common_sub[0]).strip('?').strip(',').strip('.').strip(':').strip(';').strip(' ')
@@ -751,6 +799,87 @@ def clean_bib(list_ref_items):
 
     # the function returns that list
     return list_clean_ref_items
+
+#===============================================================================
+def merge_entries(list_of_entries):
+#===============================================================================
+    new_ref_type     = ''
+    new_cite_key     = ''
+    new_author       = ''
+    new_editor       = ''
+    new_title        = ''
+    new_booktitle    = ''
+    new_chapter      = ''
+    new_institution  = ''
+    new_school       = ''
+    new_journal      = ''
+    new_volume       = ''
+    new_number       = ''
+    new_pages        = ''
+    new_note         = ''
+    new_url          = ''
+    new_doi          = ''
+    new_year         = ''
+
+    for entry in list_of_entries:
+        if len(new_ref_type   ) < len(entry[0] ): new_ref_type    = entry[0]
+        if len(new_cite_key   ) < len(entry[1] ): new_cite_key    = entry[1]
+        if len(new_author     ) < len(entry[2] ): new_author      = entry[2]
+        if len(new_editor     ) < len(entry[3] ): new_editor      = entry[3]
+        if len(new_title      ) < len(entry[4] ): new_title       = entry[4]
+        if len(new_booktitle  ) < len(entry[5] ): new_booktitle   = entry[5]
+        if len(new_chapter    ) < len(entry[6] ): new_chapter     = entry[6]
+        if len(new_institution) < len(entry[7] ): new_institution = entry[7]
+        if len(new_school     ) < len(entry[8] ): new_school      = entry[8]
+        if len(new_journal    ) < len(entry[9] ): new_journal     = entry[9]
+        if len(new_volume     ) < len(entry[10]): new_volume      = entry[10]
+        if len(new_number     ) < len(entry[11]): new_number      = entry[11]
+        if len(new_pages      ) < len(entry[12]): new_pages       = entry[12]
+        if len(new_note       ) < len(entry[13]): new_note        = entry[13]
+        if len(new_url        ) < len(entry[14]): new_url         = entry[14]
+        if len(new_doi        ) < len(entry[15]): new_doi         = entry[15]
+        if len(new_year       ) < len(entry[16]): new_year        = entry[16]
+
+    return (new_ref_type,
+            new_cite_key,
+            new_author,
+            new_editor,
+            new_title,
+            new_booktitle,
+            new_chapter,
+            new_institution,
+            new_school,
+            new_journal,
+            new_volume,
+            new_number,
+            new_pages,
+            new_note,
+            new_url,
+            new_doi,
+            new_year       
+            )              
+                           
+#===============================================================================
+def retrieve_entry(clean_entries, pos):
+#===============================================================================
+    return (clean_entries[0][pos],    # ref_type
+            clean_entries[1][pos],    # cite_key
+            clean_entries[2][pos],    # author
+            clean_entries[3][pos],    # editor
+            clean_entries[4][pos],    # title
+            clean_entries[5][pos],    # booktitle
+            clean_entries[6][pos],    # chapter
+            clean_entries[7][pos],    # institution
+            clean_entries[8][pos],    # school
+            clean_entries[9][pos],    # journal
+            clean_entries[10][pos],   # volume
+            clean_entries[11][pos],   # number
+            clean_entries[12][pos],   # pages
+            clean_entries[13][pos],   # note
+            clean_entries[14][pos],   # url
+            clean_entries[15][pos],   # doi
+            clean_entries[16][pos]    # year
+            )
 
 #===============================================================================
 if __name__=='__main__':
