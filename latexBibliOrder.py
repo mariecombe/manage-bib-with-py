@@ -1,23 +1,22 @@
 #!/usr/bin/env python
 
 """
-This program reads one or more bib file, separates its bibtex entries
-and reorders its items in a designated order.
+This program reads one or more bib files, separates its bibtex entries
+cleans them, and reorders its items in a designated order.
 
 Processing include:
-    -- reordering
     -- reassignation of key_name
     -- inclusion of double curly braquets in title
     -- removal of eprint, abstract, ... if any
     -- save file as latexBibliOrder.bib
     -- promp errors when invalid format (manual modifications needed)
+    -- reordering
     -- keep url for excelBibData.py
 """
 
 import sys, os, glob, re, string
 import numpy as np
 from operator import itemgetter
-
 
 #===============================================================================
 def main():
@@ -98,42 +97,40 @@ def main():
         # Loops the rows from the end to the start:
         for j,stuff in enumerate(list_ref_items):
 
-            ## After detailed description of what's going on, we reach the part were things get interesting,
-            ## and surprise surprise, no description!
+            ## For the first line, selects the bib_type as what's before the { and the bib_cite_key as what's after that.
             if j==0:
                 bib_type     = stuff.split('{')[0]
                 bib_cite_key = stuff.split('{')[1]
                 clean_entries[0][i]   = bib_type
                 clean_entries[1][i]   = bib_cite_key
 
+            ## For the rest, separates key from value, and cleans edges by removing
+            # empty spaces, quotation marks, and curly brackets
             else:
-                if len(stuff.split('='))==2: # if the line that is read contains useful info
-                                             # i.e. if it is not a single curly bracket or empty line
+                if len(stuff.split('='))==2: # reads the line if it contains useful info (not a single curly bracket or empty line)
 
-                    # Separates key from value, and cleans edges by removing
-                    # empty spaces, quotation marks, and curly brackets
                     key = stuff.split('=')[0].strip(' ').strip('"').strip('{').strip('}').strip('\t').strip(' ')
                     value  = stuff.split('=')[1].strip(',').strip(' ').strip('"').strip('{').strip('}').strip(' ')
 
                     if key=='author':
-                        author = cleanName(value, i, bib_type)
-                        clean_entries[2][i] = author[0]
-                        if author[1]!=None: invalid_refs += [author[1]] # When an invalid error is detected in author
+                        author = cleanName(value, i, bib_type) # cleans the entry as defined by its function
+                        clean_entries[2][i] = author[0] # stores it in its correct position in the matrix
+                        if author[1]!=None: invalid_refs += [author[1]] # detects if there's an error - here in author
 
                     if key=='editor':
                         editor = cleanName(value, i, bib_type)
                         clean_entries[3][i] = editor[0]
-                        if editor[1]!=None: invalid_refs += [editor[1]] # When an invalid error is detected in editor
+                        if editor[1]!=None: invalid_refs += [editor[1]] # detects if there's an error in editor
 
                     if key=='title':
                         title  = cleanTitle(value, i, bib_type)
                         clean_entries[4][i] = title[0]
-                        if title[1]!=None: invalid_refs += [title[1]] # When an invalid error is detected in title
+                        if title[1]!=None: invalid_refs += [title[1]] # detects if there's an error in title
 
                     if key=='booktitle':
                         btitle = cleanTitle(value, i, bib_type)
                         clean_entries[5][i] = btitle[0]
-                        if btitle[1]!=None: invalid_refs += [btitle[1]] # When an invalid error is detected in booktitle
+                        if btitle[1]!=None: invalid_refs += [btitle[1]] # detects if there's an error in booktitle
                     if key=='chapter':     clean_entries[6][i] = value
                     if key=='institution': clean_entries[7][i] = value
                     if key=='school':      clean_entries[8][i] = value
@@ -143,73 +140,73 @@ def main():
                     if key=='chapter':
                         chapter = cleanChapter(value, i, bib_type)
                         clean_entries[6][i] = chapter[0]
-                        if chapter[1]!=None: invalid_refs += [chapter[1]] # When an invalid error is detected in chapter
+                        if chapter[1]!=None: invalid_refs += [chapter[1]] # detects if there's an error in chapter
 
                     if key=='institution':
                         institution = cleanInstitution(value, i, bib_type)
                         clean_entries[7][i] = institution[0]
-                        if institution[1]!=None: invalid_refs += [institution[1]] # When an invalid error is detected in institution
+                        if institution[1]!=None: invalid_refs += [institution[1]] # detects if there's an error in institution
                         #NB: we want the key to match the insitution, in case of "misc" references
 
                     if key=='school':
                         school = cleanSchool(value, i, bib_type)
                         clean_entries[8][i] = school[0]
-                        if school[1]!=None: invalid_refs += [school[1]] # When an invalid error is detected in school
+                        if school[1]!=None: invalid_refs += [school[1]] # detects if there's an error in school
 
                     if key=='journal':
                         journal = cleanJournal(value, i, bib_type)
                         clean_entries[9][i] = journal[0]
-                        if journal[1]!=None: invalid_refs += [journal[1]] # When an invalid error is detected in journal
+                        if journal[1]!=None: invalid_refs += [journal[1]] # detects if there's an error in journal
                     '''
                     if key=='volume':
                         volume = cleanVolume(value, i, bib_type)
                         clean_entries[10][i] = volume[0]
-                        if volume[1]!=None: invalid_refs += [volume[1]] # When an invalid error is detected in volume
+                        if volume[1]!=None: invalid_refs += [volume[1]] # detects if there's an error in volume
 
                     if key=='number':
                         number = cleanNumber(value, i, bib_type)
                         clean_entries[11][i] = number[0]
-                        if number[1]!=None: invalid_refs += [number[1]] # When an invalid error is detected in number
+                        if number[1]!=None: invalid_refs += [number[1]] # detects if there's an error in number
 
                     if key=='pages':
                         pages = cleanPages(value, i, bib_type)
                         clean_entries[12][i] = pages[0]
-                        if pages[1]!=None: invalid_refs += [pages[1]] # When an invalid error is detected in pages
+                        if pages[1]!=None: invalid_refs += [pages[1]] # detects if there's an error in pages
 
                     if key=='note':
                         note = cleanNote(value, i, bib_type)
                         clean_entries[13][i] = note[0]
-                        if note[1]!=None: invalid_refs += [note[1]] # When an invalid error is detected in note
+                        if note[1]!=None: invalid_refs += [note[1]] # detects if there's an error in note
 
                     if key=='url':
                         url = cleanURL(value, i, bib_type)
                         clean_entries[14][i] = url[0]
-                        if url[1]!=None: invalid_refs += [url[1]] # When an invalid error is detected in URL
+                        if url[1]!=None: invalid_refs += [url[1]] # detects if there's an error in URL
 
                     if key=='doi':
                         doi = cleanDOI(value, i, bib_type)
                         clean_entries[15][i] = doi[0]
-                        if doi[1]!=None: invalid_refs += [doi[1]] # When an invalid error is detected in doi
+                        if doi[1]!=None: invalid_refs += [doi[1]] # detects if there's an error in doi
 
                     if key=='year':
                         year = cleanYear(value, i, bib_type)
                         clean_entries[16][i] = year[0]
-                        if year[1]!=None: invalid_refs += [year[1]] # When an invalid error is detected in year
+                        if year[1]!=None: invalid_refs += [year[1]] # detects if there's an error in year
 
 
 
     #---------------- WARNING THE USER ABOUT MISTAKES AND GAPS -----------------
 
-    # if entries with errors were detected during the cleaning
+    # detects if entries have errors during cleaning
     if len(invalid_refs)>0:
-        # we print warning messages for the user to take action
-        print '\nUser modifications required:'
+        # prints warning messages for user action
+        print '\nUser modifications required in %s entries:'%len(invalid_refs)
         for bibitem_nb, error_message, clean_value in invalid_refs:
             cite_key = clean_entries[1][bibitem_nb]
-            print 'WARNING! %20s : %s '%(cite_key, error_message) +\
-            '(%s)'%clean_value.strip(',').strip('{').strip('}')
+            print 'WARNING! in %20s - %s ' %(cite_key.strip(','), error_message) +\
+            '"%s"'%clean_value.strip(',').strip('{').strip('}')
 
-    # check for gaps:
+    # checks for gaps:
     gaps_info = []
     for i,cite_key in enumerate(clean_entries[1]):
         bib_entry = retrieve_entry(clean_entries, i)
@@ -217,15 +214,16 @@ def main():
 
     # if entries with gaps were detected
     if len(gaps_info)>0:
-        # we print warning messages for the user to take action
-        print '\nGap-filling required:'
+        # prints warning messages for user action
+        print '\nGap-filling required in %s entries:'%len(gaps_info)
         for cite_key, gap_message in gaps_info:
-            print 'GAPS!    %20s : %s '%(cite_key, gap_message)
+            print 'GAPS! in %20s - %s '%(cite_key.strip(','), gap_message)
 
-    #------------------- FINISHING TO CLEAN THE CITE KEYS ----------------------
 
-    # after reading all the information for all bib items, and having
-    # stored it in the table we clean the bib cite key items
+
+    #------------------- CLEANS CITE KEYS ----------------------
+
+    # cleans the bib cite key items
     for i in range(nbcols):
         try:
             clean_entries[1][i] = cleanBibCiteKey(clean_entries[1][i],
@@ -244,82 +242,77 @@ def main():
                                                       clean_entries[4][i],
                                                       clean_entries[16][i])
 
-
-    # let's assign a letter to the keys when same author has published few times in
-    # the same year
+    # assigns a letter to the keys when bib_cite_key is the same (several papers with same author and year)
     duplicate_positions = dict()
     for i,key in enumerate(clean_entries[1]):
 
-        # initialize some variables
+        # initializes some variables
         listEqualRef = []
         alphabet = string.ascii_lowercase
         pos_duplicates = []
 
-        # we loop over all possible cite_keys from all files
+        # loops over all possible cite_keys from all files
         for position,k in enumerate(clean_entries[1]):
 
-            # if we find other references with the same author and year as our 
-            # entry, we add it to a list
-            if k == key: 
+            # add entry to list when bib_cite_key is the same
+            if k == key:
                 title = clean_entries[4][position].lower()
                 listEqualRef += [[k, position, title, False]]
 
-        # we sort the list in alphabetical order using the lower case titles
+        # sorts the list in alphabetical order using the lower case titles
         listEqualRef = sorted(listEqualRef, key=itemgetter(2))
 
-        # if the reference is a duplicate, we modify its 'duplicate' flag to 'True'
+        # changes the 'duplicate' flag of a reference to 'True' when the reference is a duplicate
         for r,ref in enumerate(listEqualRef):
             other_titles = [item[2] for x,item in enumerate(listEqualRef) if x!=r]
             if ref[2] in other_titles:
                 listEqualRef[r][3] = True
-                # if not already done, we append the duplicate position to a list
+                # duplicate position to a list when not already done
                 if ref[1] not in pos_duplicates:
                     pos_duplicates += [listEqualRef[r][1]]
 
-        # we append a letter to the cite_keys with same author and year if 
-        # there is more than one unique publication for that author x year
+        # appends a letter to the bib_cite_key when coincident but non duplicated entries are found
         unique_titles = set([r[2] for r in listEqualRef])
         if len(unique_titles) > 1:
             counter = -1
             for k,pos,tit,dup in listEqualRef:
-                if dup==False: counter += 1 
+                if dup==False: counter += 1
                 clean_entries[1][pos] = k + alphabet[counter]
-                #print clean_entries[1][pos], tit
 
-        # we store the duplicate entries position in a dictionary for later use
+        # stores the duplicate entries position in a dictionary for later use
         duplicate_positions[clean_entries[1][i]] = pos_duplicates
-    
+
+
+
     #---------------------------------------------------------------------------
+    # makes entries table a list of entries, to merge duplicates and sort references alphabetically
 
-    # we translate the table of entries into a list of entries, in order to
-    # 1- merge the duplicate bib entries
-    # 2- sort references alphabetically
-
-    # we initialize the final list
+    # initializes final list
     sorted_refs = []
 
-    # we loop over all bib entries:
+    # loops over all bib entries:
     for i,cite_key in enumerate(clean_entries[1]):
 
-        # if the reference is not already stored in the final list:
+        # when reference not yet stored in final list:
         if cite_key not in [k[1] for k in sorted_refs]:
 
-            # if there are duplicates for that cite_key, we store the merged 
-            # information from all duplicates
+            # stores the info of merged duplicates of bib_cite_key
             if duplicate_positions[cite_key] != []:
                 positions = duplicate_positions[cite_key]
                 duplicate_entries = [retrieve_entry(clean_entries,p) for p in positions]
                 best_entry = merge_entries(duplicate_entries)
                 sorted_refs += [best_entry]
-                print '\nWARNING: We merged %i duplicate entries for %s'%(len(positions),cite_key)
+                print '\nWARNING: Merged %i duplicate entries for %s'%(len(positions),cite_key)
 
-            # else, we store the information as is
+            # else, stores the information as is
             else:
                 sorted_refs += [retrieve_entry(clean_entries, i)]
 
-    # we sort the list of bib entries using the unique cite_keys:
+    # sorts the list of bib entries using unique bib_cite_keys:
     sorted_refs = sorted(sorted_refs, key=itemgetter(1))
     #print [r[1] for r in sorted_refs]
+
+
 
     #---------------------------------------------------------------------------
 
@@ -354,213 +347,187 @@ def main():
 
     # exit the script
 
+
+### Function definitions
+
 #===============================================================================
 def cleanYear(year, ref_nb, ref_type):
 #===============================================================================
 
-    # 1- cleaning:
-    # ------------
-    # we append one set of curly brackets around the year if non empty
+    # appends curly brackets to year when non empty
     if year!='':
         year = '{' + year + '}'
 
-    # 2- check for invalid format:
-    # ---------------------------
-    invalidYear = False # initialize to False
+    # checks for invalid format
+    invalidYear = False # initializes to False
 
-    # year is invalid if there are non-digits characters, or year length is
-    # longer than 4 characters
+    # checks for False values; non-digits characters, or length is longer than 4 characters
     import string
     authorized_chars = string.digits
     for char in year.strip('{').strip('}'):
         if char not in authorized_chars: invalidYear = True
     if len(year.strip('{').strip('}'))>4: invalidYear = True
 
-    # 3- return clean item, and error message if needed
-    # -------------------------------------------------
-    # return error if year is missing for 'article' bib type
-    if (year == '') and (ref_type=='article'):
+    # returns clean item, which error message if it's the case
+    if (year == '') and (ref_type=='article'):     # error if year is missing for 'article' type
         return year, (ref_nb, "missing year of article", year)
 
-    # return error if invalid year
-    elif invalidYear == True:
+    elif invalidYear == True:     # error if year is invalid
         return year, (ref_nb, "invalid year", year)
 
-    # in all other cases, return no error
+    # returns no error in all other cases
     else:
         return year, None
+
+
 
 #===============================================================================
 def cleanDOI(doi, ref_nb, ref_type):
 #===============================================================================
 
-    # 1- cleaning:
-    # ------------
-    # we remove the http start where relevant
+    # removes the http start where relevant
     doi = doi.replace('http://dx.doi.org/','')
-    # we append one set of curly brackets around the doi if non empty
+
+    # appends one set of curly brackets around the doi if non empty
     if doi!='':
         doi = '{' + doi + '}'
 
-    # 2- check for invalid format:
-    # ---------------------------
-    invalidDOI = False # initialize to False
+    # checks for invalid format:
+    invalidDOI = False # initializes to False
 
-    # DOI is invalid if there is a non-closed parenthesis in the final string
-    for par1, par2 in zip('({[',')}]'):
+    for par1, par2 in zip('({[',')}]'):    # invalid if there is a non-closed parenthesis in the final string
         tt1 = doi.split(par1)
         tt2 = doi.split(par2)
         if len(tt1) != len(tt2): invalidDOI = True
 
-    # 3- return clean item, and error message if needed
-    # -------------------------------------------------
-    # return error if doi is missing for 'article' bib type
-    if (doi == '') and (ref_type=='article'):
+    # returns clean item, and error message if it's the case
+    if (doi == '') and (ref_type=='article'):     # returns error if doi is missing for 'article' bib type
         return doi, (ref_nb, "missing doi of article", doi)
 
-    # return error if invalid doi
-    elif invalidDOI == True:
+    elif invalidDOI == True:    # returns error if invalid doi
         return doi, (ref_nb, "invalid doi", doi)
 
-    # in all other cases, return no error
+    # returns no error in all other cases
     else:
         return doi, None
+
+
 
 #===============================================================================
 def cleanURL(url, ref_nb, ref_type):
 #===============================================================================
 
-    # 1- cleaning:
-    # ------------
-    # we only want the URL to be used for websites ('misc' type), so we empty the
-    # string for all other types
+    # empties the string for all types but 'misc' type
     if not ref_type.startswith('misc'):
         url = ''
-    # we append one set of curly brackets around the URL if non empty
+
+    # appends one set of curly brackets if non empty
     if url!='':
         url = '{' + url + '}'
 
-    # 2- check for invalid format:
-    # ---------------------------
-    invalidURL = False # initialize to False
+    # checks for invalid format
+    invalidURL = False # initializes to False
 
-    # URL should start with an 'http://' string
-    if ref_type.startswith('misc') and not url.startswith('{http://'):
+    if ref_type.startswith('misc') and not url.startswith('{http://'):    # checks URL starting with an 'http://'
         invalidURL = True
-    # URL is invalid if there is a parenthesis in the middle of the final string
-    for char in '({[)}]':
+
+    for char in '({[)}]':    # error when URL has a parenthesis in the middle of the final string
         if char in url.strip('{').strip('}'):
             invalidURL = True
 
-
-    # 3- return clean item, and error message if needed
-    # -------------------------------------------------
-    # return error if url is missing for 'misc' bib type
-    if (url == '') and (ref_type.startswith('misc')):
+    # returns clean item, and error message if it's the case
+    if (url == '') and (ref_type.startswith('misc')):     # error when url is missing for 'misc' bib type
         return url, (ref_nb, "missing URL for website", url)
 
-    # return error if invalid url
-    elif invalidURL == True:
+    elif invalidURL == True:    # return error if invalid url
         return url, (ref_nb, "invalid URL", url)
 
-    # in all other cases, return no error
+    # returns no error in all other cases
     else:
         return url, None
+
+
 
 #===============================================================================
 def cleanNote(note, ref_nb, ref_type):
 #===============================================================================
 
-    # 1- cleaning:
-    # ------------
-    # we only want the note used for websites ('misc type'), so we empty the
-    # string for all other types
+    # empties the string for all types but 'misc' type
     if not ref_type.startswith('misc'):
         note = ''
-    # we append one set of curly brackets around the note if non-empty
+
+    # appends one set of curly brackets if non empty
     if note!='':
         note = '{' + note + '}'
 
-    # 2- check for invalid format:
-    # ---------------------------
-    invalidNote = False # initialize to False
+    # checks for invalid format
+    invalidNote = False # initializes to False
 
-    # note should start with a 'Last accessed on' string
-    if ref_type.startswith('misc') and not note.startswith('{Last accessed on'):
+    if ref_type.startswith('misc') and not note.startswith('{Last accessed on'):    # check if starts with a 'Last accessed on'
         invalidNote = True
 
-
-    # 2- return clean item, and error message if needed
-    # -------------------------------------------------
-    # return error if note is missing for 'misc' bib type
-    if (note == '') and (ref_type.startswith('misc')):
+    # returns clean item, and error message if it's the case
+    if (note == '') and (ref_type.startswith('misc')):    # return error if note is missing for 'misc' bib type
         return note, (ref_nb, "missing 'Last accessed on (mon) (day), (year)'"+\
                " statement for website", note)
 
-    # return error if invalid note
-    elif invalidNote == True:
+    elif invalidNote == True:    # return error if invalid note
         return note, (ref_nb, "invalid 'Last accessed on (mon) (day), (year)'"+\
                " statement for website", note)
 
-    # in all other cases, return no error
+    # returns no error in all other cases
     else:
         return note, None
+
+
 
 #===============================================================================
 def cleanPages(pages, ref_nb, ref_type):
 #===============================================================================
 
-    # 1- cleaning:
-    # ------------
-    invalidPages = False
-    # replace single '-' by double '--'
+    # replaces single '-' by double '--'
     if '--' not in pages and '-' in pages:
         pages = pages.replace('-','--')
-    # strip empty spaces around '--' when relevant
+
+    # strips empty spaces around '--' when relevant
     if '--' in pages:
         pp = pages.split('--')
         if len(pp)==2:
             pp[0] = pp[0].strip(' ')
             pp[1] = pp[1].strip(' ')
             pages = pp[0]+'--'+pp[1]
+
     # add a set of curly bracket around the page number(s)
     pages = '{' + pages + '}'
 
-    # 2- check for invalid format:
-    # ---------------------------
+    # checks for invalid format
     invalidPages = False # initialize to False
 
-    # if we have more than one page number
-    if '--' in pages:
+    if '--' in pages:     # if we have more than one page number
         pp = pages.split('--')
-        # but if a page boundary is missing: invalid format error
-        if len(pp)==2 and (pp[0]=='{' or pp[1]=='}'): invalidPages = True
+        if len(pp)==2 and (pp[0]=='{' or pp[1]=='}'): invalidPages = True     # checks if a page boundary is missing
+        elif len(pp)!=2: invalidPages = True        # checks if there's more than one '--'
 
-        # or if we have more than one '--': invalid format error
-        elif len(pp)!=2: invalidPages = True
-
-    # we allow only '--' and digits (no puntuation, no letters, no special encoding)
-    import string
-    authorized_chars = string.digits + '-'
+    authorized_chars = string.digits + '-'     # allows only '--' and digits (no puntuation, no letters, no special encoding)
     # we check for authorized characters on the string representation (i.e. repr(string))
     # to be able to check for encoded letters and characters (they start with '\'
     # in the string representation, but not in the string itself)
     for char in repr(pages).strip("'").strip('{').strip('}'):
         if char not in authorized_chars: invalidPages = True; break
 
-    # 2- return clean item, and error message if needed
-    # -------------------------------------------------
-    # return error if the ref item is not provided but is compulsory for a certain bib type
-    if (pages == '') and (ref_type == 'article' or ref_type == 'inbook'):
+    # returns clean item, and error message if it's the case
+
+    if (pages == '') and (ref_type == 'article' or ref_type == 'inbook'):  # checks ref item is not provided but is compulsory for a certain bib type
         return pages, (ref_nb, 'missing pages', pages)
 
-    # return error if the item contains unauthorized characters
-    elif invalidPages==True:
+    elif invalidPages==True:     # return error if the item contains unauthorized characters
         return pages, (ref_nb, 'invalid pages', pages)
 
-    # in all other cases, return no error
+    # returns no error in all other cases
     else:
         return pages, None
+
+
 
 #===============================================================================
 def cleanNumber(number, ref_nb, ref_type):
@@ -603,9 +570,11 @@ def cleanNumber(number, ref_nb, ref_type):
     elif invalidNumber==True:
         return number, (ref_nb, 'invalid issue number', number)
 
-    # in all other cases, return no error
+    # returns no error in all other cases
     else:
         return number, None
+
+
 
 #===============================================================================
 def cleanVolume(volume, ref_nb, ref_type):
@@ -648,9 +617,125 @@ def cleanVolume(volume, ref_nb, ref_type):
     elif invalidVolume==True:
         return volume, (ref_nb, 'invalid volume', volume)
 
-    # in all other cases, return no error
+    # returns no error in all other cases
     else:
         return volume, None
+
+
+"""
+#===============================================================================
+def cleanJournal(journal, ref_nb, ref_type):
+#===============================================================================
+
+
+
+#===============================================================================
+def cleanSchool(school, ref_nb, ref_type):
+#===============================================================================
+
+
+
+#===============================================================================
+def cleanInstitution(institution, ref_nb, ref_type):
+#===============================================================================
+
+
+
+#===============================================================================
+def cleanChapter(chapter, ref_nb, ref_type):
+#===============================================================================
+"""
+
+
+
+#===============================================================================
+def cleanName(name, ref_nb, ref_type):
+#===============================================================================
+
+    # define individual names by splitting them via 'and' separator
+    #authors = name.lower().split(' and ')
+    substrings = re.split(r'(?u)(?![\,\.,])\W+',name)
+    substrings = [sub.lower() for sub in substrings]
+    for i,sub in enumerate(substrings):
+        if (len(sub) > 1 and sub != 'and' and '.' not in sub):
+            sub = sub[0].upper() + sub[1:]
+        elif (len(sub) > 1 and sub != 'and' and '.' in sub):
+            sub = sub.upper()
+            if not sub.endswith('.') and not sub.endswith(','): sub = sub + '.'
+
+        elif (len(sub) == 1 and sub != 'and'):
+            sub = sub.upper() + '.'
+        substrings[i] = sub
+
+    author_list = substrings[0]
+    for i,string in enumerate(substrings[1:]):
+        if string.endswith('.') and substrings[i-1].endswith('.'):
+            author_list += string
+        else:
+            author_list += ' ' + string
+
+
+#    # attach the {}'s and the comma, so we don't have to worry later on
+#    name = '{' + name + '},'
+
+    # check for invalid format:
+    invalidName = False
+    # author_list is invalid if there is a missing parenthesis in the final string
+    for par1, par2 in zip('({[',')}]'):
+        tt1 = author_list.split(par1)
+        tt2 = author_list.split(par2)
+        if len(tt1) != len(tt2): invalidName = True
+
+
+    # return error if the item is invalid
+    if invalidName==True:
+        return author_list, (ref_nb, 'invalid author list', author_list)
+
+    # returns no error in all other cases
+    else:
+        return author_list, None
+
+
+#===============================================================================
+def cleanTitle(title, ref_nb, ref_type):
+#===============================================================================
+
+    # split the title into its words, and check if they all with with capitals
+    title_words = title.split(' ')
+
+    for word in title_words:
+        if word[0] == word[0].upper():
+            all_first_cap = True
+        else:
+            all_first_cap = False
+            break
+
+    # convert the title to lower cases if we detect all words start with capitals
+    if all_first_cap == True or title == title.lower():
+        title = title.lower()
+
+    # make the first letter Capital and add {{}} to force bibtex to read "as is"
+    title = title[0].upper() + title[1:]
+    title = '{{' + title + '}},'
+
+    # check for invalid format:
+    invalidTitle = False
+    # title is invalid if there is a missing parenthesis in the final string
+    for par1, par2 in zip('({[',')}]'):
+        tt1 = title.split(par1)
+        tt2 = title.split(par2)
+        if len(tt1) != len(tt2): invalidTitle = True
+
+
+    # return error if the item is invalid
+    if invalidTitle==True:
+        return title, (ref_nb, 'invalid title', title)
+
+    # returns no error in all other cases
+    else:
+        return title, None
+
+
 
 #===============================================================================
 def cleanBibCiteKey(key, listAuthors, title, year):
@@ -696,99 +781,6 @@ def lcs(S,T):
 
     return lcs_set
 
-#===============================================================================
-def cleanName(name, ref_nb, ref_type):
-#===============================================================================
-
-    # define individual names by splitting them via 'and' separator
-    #authors = name.lower().split(' and ')
-    substrings = re.split(r'(?u)(?![\,\.,])\W+',name)
-    substrings = [sub.lower() for sub in substrings]
-    for i,sub in enumerate(substrings):
-        if (len(sub) > 1 and sub != 'and' and '.' not in sub):
-            sub = sub[0].upper() + sub[1:]
-        elif (len(sub) > 1 and sub != 'and' and '.' in sub):
-            sub = sub.upper()
-            if not sub.endswith('.') and not sub.endswith(','): sub = sub + '.'
-
-        elif (len(sub) == 1 and sub != 'and'):
-            sub = sub.upper() + '.'
-        substrings[i] = sub
-
-    author_list = substrings[0]
-    for i,string in enumerate(substrings[1:]):
-        if string.endswith('.') and substrings[i-1].endswith('.'):
-            author_list += string
-        else:
-            author_list += ' ' + string
-
-
-#    # attach the {}'s and the comma, so we don't have to worry later on
-#    name = '{' + name + '},'
-
-    # check for invalid format:
-    invalidName = False
-    # author_list is invalid if there is a missing parenthesis in the final string
-    for par1, par2 in zip('({[',')}]'):
-        tt1 = author_list.split(par1)
-        tt2 = author_list.split(par2)
-        if len(tt1) != len(tt2): invalidName = True
-
-
-    # return error if the item is invalid
-    if invalidName==True:
-        return author_list, (ref_nb, 'invalid author list', author_list)
-
-    # in all other cases, return no error
-    else:
-        return author_list, None
-
-
-#===============================================================================
-def cleanTitle(title, ref_nb, ref_type):
-#===============================================================================
-
-    # split the title into its words, and check if they all with with capitals
-    title_words = title.split(' ')
-
-    for word in title_words:
-        if word[0] == word[0].upper():
-            all_first_cap = True
-        else:
-            all_first_cap = False
-            break
-
-    # convert the title to lower cases if we detect all words start with capitals
-    if all_first_cap == True or title == title.lower():
-        title = title.lower()
-
-    # make the first letter Capital and add {{}} to force bibtex to read "as is"
-    title = title[0].upper() + title[1:]
-    title = '{{' + title + '}},'
-
-    # check for invalid format:
-    invalidTitle = False
-    # title is invalid if there is a missing parenthesis in the final string
-    for par1, par2 in zip('({[',')}]'):
-        tt1 = title.split(par1)
-        tt2 = title.split(par2)
-        if len(tt1) != len(tt2): invalidTitle = True
-
-
-    # return error if the item is invalid
-    if invalidTitle==True:
-        return title, (ref_nb, 'invalid title', title)
-
-    # in all other cases, return no error
-    else:
-        return title, None
-
-
-#===============================================================================
-#value in key 'booktitle' has the same structure needs than value in key 'title'
-#===============================================================================
-
-
 
 #===============================================================================
 def clean_bib(list_ref_items):
@@ -819,87 +811,87 @@ def check_gaps(bib_entry):
 
     # for all articles:
     if bib_type == 'article':
-        if bib_entry[2] == '': entry_gaps += [(cite_key, 'Missing author of %s'%bib_type)]
-        if bib_entry[4] == '': entry_gaps += [(cite_key, 'Missing title of %s'%bib_type)]
-        if bib_entry[9] == '': entry_gaps += [(cite_key, 'Missing journal of %s'%bib_type)]
-        #if bib_entry[10] == '': entry_gaps += [(cite_key, 'Missing volume of %s'%bib_type)]
-        #if bib_entry[12] == '': entry_gaps += [(cite_key, 'Missing pages of %s'%bib_type)]
-        if bib_entry[16] == '': entry_gaps += [(cite_key, 'Missing year of %s'%bib_type)]
+        if bib_entry[2] == '': entry_gaps += [(cite_key, 'missing author of %s'%bib_type)]
+        if bib_entry[4] == '': entry_gaps += [(cite_key, 'missing title of %s'%bib_type)]
+        if bib_entry[9] == '': entry_gaps += [(cite_key, 'missing journal of %s'%bib_type)]
+        #if bib_entry[10] == '': entry_gaps += [(cite_key, 'missing volume of %s'%bib_type)]
+        #if bib_entry[12] == '': entry_gaps += [(cite_key, 'missing pages of %s'%bib_type)]
+        if bib_entry[16] == '': entry_gaps += [(cite_key, 'missing year of %s'%bib_type)]
 
     # for all books:
     elif bib_type == 'book':
-        if (bib_entry[2] == '') and (bib_entry[3] == ''): 
-            entry_gaps += [(cite_key, 'Missing author OR editor of %s'%bib_type)]
-        if bib_entry[4] == '': entry_gaps += [(cite_key, 'Missing title of %s'%bib_type)]
-        if bib_entry[16] == '': entry_gaps += [(cite_key, 'Missing year of %s'%bib_type)]
-        #if bib_entry[17] == '': entry_gaps += [(cite_key, 'Missing publisher of %s'%bib_type)]
+        if (bib_entry[2] == '') and (bib_entry[3] == ''):
+            entry_gaps += [(cite_key, 'missing author OR editor of %s'%bib_type)]
+        if bib_entry[4] == '': entry_gaps += [(cite_key, 'missing title of %s'%bib_type)]
+        if bib_entry[16] == '': entry_gaps += [(cite_key, 'missing year of %s'%bib_type)]
+        #if bib_entry[17] == '': entry_gaps += [(cite_key, 'missing publisher of %s'%bib_type)]
 
     # for all booklets:
     elif bib_type == 'booklet':
-        if bib_entry[4] == '': entry_gaps += [(cite_key, 'Missing title of %s'%bib_type)]
+        if bib_entry[4] == '': entry_gaps += [(cite_key, 'missing title of %s'%bib_type)]
 
     # for all book chapters without their own titles:
     elif bib_type == 'inbook':
-        if (bib_entry[2] == '') and (bib_entry[3] == ''): 
-            entry_gaps += [(cite_key, 'Missing author OR editor of %s'%bib_type)]
-        if (bib_entry[6] == '') and (bib_entry[12]==''): 
-            entry_gaps += [(cite_key, 'Missing book chapter OR pages of %s'%bib_type)]
-        if bib_entry[4] == '': entry_gaps += [(cite_key, 'Missing title of %s'%bib_type)]
-        if bib_entry[16] == '': entry_gaps += [(cite_key, 'Missing year of %s'%bib_type)]
-        #if bib_entry[17] == '': entry_gaps += [(cite_key, 'Missing publisher of %s'%bib_type)]
+        if (bib_entry[2] == '') and (bib_entry[3] == ''):
+            entry_gaps += [(cite_key, 'missing author OR editor of %s'%bib_type)]
+        if (bib_entry[6] == '') and (bib_entry[12]==''):
+            entry_gaps += [(cite_key, 'missing book chapter OR pages of %s'%bib_type)]
+        if bib_entry[4] == '': entry_gaps += [(cite_key, 'missing title of %s'%bib_type)]
+        if bib_entry[16] == '': entry_gaps += [(cite_key, 'missing year of %s'%bib_type)]
+        #if bib_entry[17] == '': entry_gaps += [(cite_key, 'missing publisher of %s'%bib_type)]
 
     # for all book chapters with their own title:
     elif bib_type == 'incollection':
-        if bib_entry[2] == '': entry_gaps += [(cite_key, 'Missing author of %s'%bib_type)]
-        if bib_entry[4] == '': entry_gaps += [(cite_key, 'Missing title of %s'%bib_type)]
-        if bib_entry[5] == '': entry_gaps += [(cite_key, 'Missing book title of %s'%bib_type)]
-        if bib_entry[16] == '': entry_gaps += [(cite_key, 'Missing year of %s'%bib_type)]
-        #if bib_entry[17] == '': entry_gaps += [(cite_key, 'Missing publisher of %s'%bib_type)]
+        if bib_entry[2] == '': entry_gaps += [(cite_key, 'missing author of %s'%bib_type)]
+        if bib_entry[4] == '': entry_gaps += [(cite_key, 'missing title of %s'%bib_type)]
+        if bib_entry[5] == '': entry_gaps += [(cite_key, 'missing book title of %s'%bib_type)]
+        if bib_entry[16] == '': entry_gaps += [(cite_key, 'missing year of %s'%bib_type)]
+        #if bib_entry[17] == '': entry_gaps += [(cite_key, 'missing publisher of %s'%bib_type)]
 
     # for all articles of a conference proceedings:
     elif bib_type == 'inproceedings':
-        if bib_entry[2] == '': entry_gaps += [(cite_key, 'Missing author of %s'%bib_type)]
-        if bib_entry[4] == '': entry_gaps += [(cite_key, 'Missing title of %s'%bib_type)]
-        if bib_entry[5] == '': entry_gaps += [(cite_key, 'Missing book title of %s'%bib_type)]
-        if bib_entry[16] == '': entry_gaps += [(cite_key, 'Missing year of %s'%bib_type)]
+        if bib_entry[2] == '': entry_gaps += [(cite_key, 'missing author of %s'%bib_type)]
+        if bib_entry[4] == '': entry_gaps += [(cite_key, 'missing title of %s'%bib_type)]
+        if bib_entry[5] == '': entry_gaps += [(cite_key, 'missing book title of %s'%bib_type)]
+        if bib_entry[16] == '': entry_gaps += [(cite_key, 'missing year of %s'%bib_type)]
 
     # for all manuals:
     elif bib_type == 'manual':
-        if bib_entry[4] == '': entry_gaps += [(cite_key, 'Missing title of %s'%bib_type)]
+        if bib_entry[4] == '': entry_gaps += [(cite_key, 'missing title of %s'%bib_type)]
 
     # for all MSc or PhD theses:
     elif bib_type == 'mastersthesis' or bib_type == 'phdthesis':
-        if bib_entry[2] == '': entry_gaps += [(cite_key, 'Missing author of %s'%bib_type)]
-        if bib_entry[4] == '': entry_gaps += [(cite_key, 'Missing title of %s'%bib_type)]
-        if bib_entry[8] == '': entry_gaps += [(cite_key, 'Missing school of %s'%bib_type)]
-        if bib_entry[16] == '': entry_gaps += [(cite_key, 'Missing year of %s'%bib_type)]
+        if bib_entry[2] == '': entry_gaps += [(cite_key, 'missing author of %s'%bib_type)]
+        if bib_entry[4] == '': entry_gaps += [(cite_key, 'missing title of %s'%bib_type)]
+        if bib_entry[8] == '': entry_gaps += [(cite_key, 'missing school of %s'%bib_type)]
+        if bib_entry[16] == '': entry_gaps += [(cite_key, 'missing year of %s'%bib_type)]
 
     # for other kind of publication (websites, databases, maps, etc):
     elif bib_type == 'misc':
-        if bib_entry[13] == '': entry_gaps += [(cite_key, 'Missing note of %s'%bib_type)]
+        if bib_entry[13] == '': entry_gaps += [(cite_key, 'missing note of %s'%bib_type)]
 
     # for an entire proceedings of a conference:
     elif bib_type == 'proceedings':
-        if bib_entry[4] == '': entry_gaps += [(cite_key, 'Missing title of %s'%bib_type)]
-        if bib_entry[16] == '': entry_gaps += [(cite_key, 'Missing year of %s'%bib_type)]
+        if bib_entry[4] == '': entry_gaps += [(cite_key, 'missing title of %s'%bib_type)]
+        if bib_entry[16] == '': entry_gaps += [(cite_key, 'missing year of %s'%bib_type)]
 
-    # for all technical reports from educational, commercial or 
+    # for all technical reports from educational, commercial or
     # standardization institution:
     elif bib_type == 'techreport':
-        if bib_entry[2] == '': entry_gaps += [(cite_key, 'Missing author of %s'%bib_type)]
-        if bib_entry[4] == '': entry_gaps += [(cite_key, 'Missing title of %s'%bib_type)]
-        if bib_entry[7] == '': entry_gaps += [(cite_key, 'Missing institution of %s'%bib_type)]
-        if bib_entry[16] == '': entry_gaps += [(cite_key, 'Missing year of %s'%bib_type)]
+        if bib_entry[2] == '': entry_gaps += [(cite_key, 'missing author of %s'%bib_type)]
+        if bib_entry[4] == '': entry_gaps += [(cite_key, 'missing title of %s'%bib_type)]
+        if bib_entry[7] == '': entry_gaps += [(cite_key, 'missing institution of %s'%bib_type)]
+        if bib_entry[16] == '': entry_gaps += [(cite_key, 'missing year of %s'%bib_type)]
 
     # for all unpublished articles/books/theses, etc:
     elif bib_type == 'unpublished':
-        if bib_entry[2] == '': entry_gaps += [(cite_key, 'Missing author of %s'%bib_type)]
-        if bib_entry[4] == '': entry_gaps += [(cite_key, 'Missing title of %s'%bib_type)]
-        if bib_entry[13] == '': entry_gaps += [(cite_key, 'Missing note of %s'%bib_type)]
+        if bib_entry[2] == '': entry_gaps += [(cite_key, 'missing author of %s'%bib_type)]
+        if bib_entry[4] == '': entry_gaps += [(cite_key, 'missing title of %s'%bib_type)]
+        if bib_entry[13] == '': entry_gaps += [(cite_key, 'missing note of %s'%bib_type)]
 
     # for wrong types:
     else:
-        entry_gaps += [(cite_key, 'Wrong reference type: %s'%bib_type)]
+        entry_gaps += [(cite_key, 'wrong reference type: %s'%bib_type)]
 
     return entry_gaps
 
@@ -959,9 +951,9 @@ def merge_entries(list_of_entries):
             new_note,
             new_url,
             new_doi,
-            new_year       
-            )              
-                           
+            new_year
+            )
+
 #===============================================================================
 def retrieve_entry(clean_entries, pos):
 #===============================================================================
@@ -988,10 +980,3 @@ def retrieve_entry(clean_entries, pos):
 if __name__=='__main__':
     main()
 #===============================================================================
-
-"""
-I don't know how difficult would this be, but... what about warning if it finds
-entries that have largely coincidental strings, i.e., duplicates but that have
-mistakes on them, that a super thorough examination (one to one) won't detect.
-
-"""
