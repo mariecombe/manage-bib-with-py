@@ -17,6 +17,7 @@ Processing include:
 import sys, os, glob, re, string
 import numpy as np
 from operator import itemgetter
+#from nltk.corpus import stopwords
 
 #===============================================================================
 def main():
@@ -134,7 +135,7 @@ def main():
                     if key=='chapter':     clean_entries[6][i] = value
                     if key=='institution': clean_entries[7][i] = value
                     if key=='school':      clean_entries[8][i] = value
-                    if key=='journal':     clean_entries[9][i] = value
+                    #if key=='journal':     clean_entries[9][i] = value
 
                     '''
                     if key=='chapter':
@@ -152,12 +153,13 @@ def main():
                         school = cleanSchool(value, i, bib_type)
                         clean_entries[8][i] = school[0]
                         if school[1]!=None: invalid_refs += [school[1]] # detects if there's an error in school
+                    '''
 
                     if key=='journal':
                         journal = cleanJournal(value, i, bib_type)
                         clean_entries[9][i] = journal[0]
                         if journal[1]!=None: invalid_refs += [journal[1]] # detects if there's an error in journal
-                    '''
+
                     if key=='volume':
                         volume = cleanVolume(value, i, bib_type)
                         clean_entries[10][i] = volume[0]
@@ -193,7 +195,8 @@ def main():
                         clean_entries[16][i] = year[0]
                         if year[1]!=None: invalid_refs += [year[1]] # detects if there's an error in year
 
-
+                #print title
+        #print journal
 
     #---------------- WARNING THE USER ABOUT MISTAKES AND GAPS -----------------
 
@@ -311,8 +314,7 @@ def main():
     # sorts the list of bib entries using unique bib_cite_keys:
     sorted_refs = sorted(sorted_refs, key=itemgetter(1))
     #print [r[1] for r in sorted_refs]
-
-
+    print clean_entries[3][i]
 
     #---------------------------------------------------------------------------
 
@@ -622,13 +624,51 @@ def cleanVolume(volume, ref_nb, ref_type):
         return volume, None
 
 
-"""
 #===============================================================================
 def cleanJournal(journal, ref_nb, ref_type):
 #===============================================================================
 
+    # makes string lowercase
+    journal = journal.lower()
+    journal = journal[0].upper() + journal[1:]
 
+    # splits the journal into its words
+    journal_words = journal.split(' ')
 
+    # makes first letter of all words a capital letter except for linking words
+    ## this totally misses the linking words in languages other than English
+    stop_words = {'ourselves', 'hers', 'between', 'yourself', 'but', 'again', 'there', 'about', 'once', 'during', 'out', 'very',
+    'having', 'with', 'they', 'own', 'an', 'be', 'some', 'for', 'do', 'its', 'yours', 'such', 'into', 'of', 'most', 'itself', 'other', 'off',
+    'is', 's', 'am', 'or', 'who', 'as', 'from', 'him', 'each', 'the', 'themselves', 'until', 'below', 'are', 'we', 'these', 'your', 'his',
+    'through', 'don', 'nor', 'me', 'were', 'her', 'more', 'himself', 'this', 'down', 'should', 'our', 'their', 'while', 'above', 'both',
+    'up', 'to', 'ours', 'had', 'she', 'all', 'no', 'when', 'at', 'any', 'before', 'them', 'same', 'and', 'been', 'have', 'in', 'will', 'on',
+    'does', 'yourselves', 'then', 'that', 'because', 'what', 'over', 'why', 'so', 'can', 'did', 'not', 'now', 'under', 'he', 'you',
+    'herself', 'has', 'just', 'where', 'too', 'only', 'myself', 'which', 'those', 'i', 'after', 'few', 'whom', 't', 'being', 'if', 'theirs',
+    'my', 'against', 'a', 'by', 'doing', 'it', 'how', 'further', 'was', 'here', 'than'}
+    for word in journal_words:
+        if word not in stop_words:
+            word = word[0].upper() + word[1:]
+
+    # adds the curly brackets.
+    journal = '{' + journal + '}'
+
+    # check for invalid format:
+    invalidJournal = False
+
+    for par1, par2 in zip('({[',')}]'):     # journal is invalid if there is a missing parenthesis in the final string
+        tt1 = journal.split(par1)
+        tt2 = journal.split(par2)
+        if len(tt1) != len(tt2): invalidJournal = True
+
+    # return error if the item is invalid
+    if invalidJournal==True:
+        return journal, (ref_nb, 'invalid journal', journal)
+
+    # returns no error in all other cases
+    else:
+        return journal, None
+
+"""
 #===============================================================================
 def cleanSchool(school, ref_nb, ref_type):
 #===============================================================================
@@ -799,6 +839,7 @@ def clean_bib(list_ref_items):
 
     # the function returns that list
     return list_clean_ref_items
+
 
 #===============================================================================
 def check_gaps(bib_entry):
