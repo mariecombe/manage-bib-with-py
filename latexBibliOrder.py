@@ -111,7 +111,8 @@ def main():
                 if len(stuff.split('='))==2: # reads the line if it contains useful info (not a single curly bracket or empty line)
 
                     key = stuff.split('=')[0].strip(' ').strip('"').strip('{').strip('}').strip('\t').strip(' ')
-                    value  = stuff.split('=')[1].strip(',').strip(' ').strip('"').strip('{').strip('}').strip(' ')
+                    value  = stuff.split('=')[1].strip(',').strip(' ').strip('"').strip('{').strip('}').strip(' ').strip(',')
+                    #value = re.sub(r'\W+',' ',stuff.split('=')[1])
 
                     if key=='author':
                         author = cleanName(value, i, bib_type) # cleans the entry as defined by its function
@@ -132,28 +133,22 @@ def main():
                         btitle = cleanTitle(value, i, bib_type)
                         clean_entries[5][i] = btitle[0]
                         if btitle[1]!=None: invalid_refs += [btitle[1]] # detects if there's an error in booktitle
-                    if key=='chapter':     clean_entries[6][i] = value
-                    if key=='institution': clean_entries[7][i] = value
-                    if key=='school':      clean_entries[8][i] = value
-                    #if key=='journal':     clean_entries[9][i] = value
 
-                    '''
                     if key=='chapter':
-                        chapter = cleanChapter(value, i, bib_type)
+                        chapter = cleanPages(value, i, bib_type)
                         clean_entries[6][i] = chapter[0]
                         if chapter[1]!=None: invalid_refs += [chapter[1]] # detects if there's an error in chapter
 
                     if key=='institution':
-                        institution = cleanInstitution(value, i, bib_type)
+                        institution = cleanJournal(value, i, bib_type)
                         clean_entries[7][i] = institution[0]
                         if institution[1]!=None: invalid_refs += [institution[1]] # detects if there's an error in institution
                         #NB: we want the key to match the insitution, in case of "misc" references
 
                     if key=='school':
-                        school = cleanSchool(value, i, bib_type)
+                        school = cleanJournal(value, i, bib_type)
                         clean_entries[8][i] = school[0]
                         if school[1]!=None: invalid_refs += [school[1]] # detects if there's an error in school
-                    '''
 
                     if key=='journal':
                         journal = cleanJournal(value, i, bib_type)
@@ -195,8 +190,11 @@ def main():
                         clean_entries[16][i] = year[0]
                         if year[1]!=None: invalid_refs += [year[1]] # detects if there's an error in year
 
-                #print title
-        #print journal
+    print clean_entries[6][:1000]
+    print clean_entries[6][1000:2000]
+    print clean_entries[6][2000:3000]
+    print clean_entries[6][3000:4000]
+    print clean_entries[6][4000:5000]
 
     #---------------- WARNING THE USER ABOUT MISTAKES AND GAPS -----------------
 
@@ -556,7 +554,6 @@ def cleanNumber(number, ref_nb, ref_type):
 
     # final search for unauthorized characters in the number string:
     # we allow only '--' punctuation characters
-    import string
     unauthorized_chars = string.punctuation
     unauthorized_chars = unauthorized_chars.replace('-','') # remove '-' from list of unauthorized characters
     for char in repr(number).strip("'").strip('{').strip('}'): # to ba able to detect encoding of strange characters
@@ -602,7 +599,6 @@ def cleanVolume(volume, ref_nb, ref_type):
         if bounds[0]=='{' or bounds[1]=='}': invalidVolume = True
 
     # we allow only '--' punctuation characters
-    import string
     unauthorized_chars = string.punctuation
     unauthorized_chars = unauthorized_chars.replace('-','')
     # we search for unauthorized characters in the 'volume' string
@@ -628,31 +624,42 @@ def cleanVolume(volume, ref_nb, ref_type):
 def cleanJournal(journal, ref_nb, ref_type):
 #===============================================================================
 
+    # 1- cleaning:
+    # ------------
     # makes string lowercase
-    journal = journal.lower()
-    journal = journal[0].upper() + journal[1:]
+    #journal = journal.lower()
+    #journal = journal[0].upper() + journal[1:]
 
     # splits the journal into its words
+    journal = journal.strip('"').strip('}').strip('{')
     journal_words = journal.split(' ')
 
     # makes first letter of all words a capital letter except for linking words
     ## this totally misses the linking words in languages other than English
-    stop_words = {'ourselves', 'hers', 'between', 'yourself', 'but', 'again', 'there', 'about', 'once', 'during', 'out', 'very',
-    'having', 'with', 'they', 'own', 'an', 'be', 'some', 'for', 'do', 'its', 'yours', 'such', 'into', 'of', 'most', 'itself', 'other', 'off',
-    'is', 's', 'am', 'or', 'who', 'as', 'from', 'him', 'each', 'the', 'themselves', 'until', 'below', 'are', 'we', 'these', 'your', 'his',
+    new_journal = ''
+    stop_words = {'between', 'but', 'again', 'there', 'about', 'once', 'during', 'out', 'very',
+    'with', 'own', 'an', 'be', 'some', 'for', 'do', 'such', 'into', 'of', 'most', 'other', 'off',
+    'is', 's', 'am', 'or', 'who', 'as', 'from', 'each', 'the', 'until', 'below', 'are', 'we', 'these', 'your', 'his',
     'through', 'don', 'nor', 'me', 'were', 'her', 'more', 'himself', 'this', 'down', 'should', 'our', 'their', 'while', 'above', 'both',
     'up', 'to', 'ours', 'had', 'she', 'all', 'no', 'when', 'at', 'any', 'before', 'them', 'same', 'and', 'been', 'have', 'in', 'will', 'on',
     'does', 'yourselves', 'then', 'that', 'because', 'what', 'over', 'why', 'so', 'can', 'did', 'not', 'now', 'under', 'he', 'you',
     'herself', 'has', 'just', 'where', 'too', 'only', 'myself', 'which', 'those', 'i', 'after', 'few', 'whom', 't', 'being', 'if', 'theirs',
-    'my', 'against', 'a', 'by', 'doing', 'it', 'how', 'further', 'was', 'here', 'than'}
-    for word in journal_words:
-        if word not in stop_words:
-            word = word[0].upper() + word[1:]
+    'my', 'against', 'a', 'by', 'doing', 'it', 'how', 'further', 'was', 'here', 'than', 'MTA', 'AAPG', 'NJAS', 'EGU', 'AGU', 'PLOS', 'PNAS',
+    'EPS', 'FAO', 'KNMI', 'CESAR', 'CGMS', 'GSA', 'ETH', 'TNO'}
+    #acronyms = []
+    for w,word in enumerate(journal_words):
+        if w==0: init = ''
+        else: init = ' ' 
+        if word.strip('(').strip(')') not in stop_words:
+            new_journal += init + word[0].upper() + word[1:].lower()
+        else:
+            new_journal += init + word
 
     # adds the curly brackets.
-    journal = '{' + journal + '}'
+    journal = '{' + new_journal + '}'
 
-    # check for invalid format:
+    # 2- check for invalid format:
+    # ---------------------------
     invalidJournal = False
 
     for par1, par2 in zip('({[',')}]'):     # journal is invalid if there is a missing parenthesis in the final string
@@ -660,6 +667,15 @@ def cleanJournal(journal, ref_nb, ref_type):
         tt2 = journal.split(par2)
         if len(tt1) != len(tt2): invalidJournal = True
 
+    # I would rather trigger an "invalid journal" error when there are punctuation
+    # characters other than dots (abbreviated journals) and other than the 
+    # final curly brackets {}
+    unauthorized_chars = string.punctuation.replace('.','').replace(',','').replace(':','')
+    for char in unauthorized_chars:
+        if char in journal.strip('{').strip('}'): invalidJournal = True
+
+    # 3- return clean item, and error message if needed
+    # -------------------------------------------------
     # return error if the item is invalid
     if invalidJournal==True:
         return journal, (ref_nb, 'invalid journal', journal)
