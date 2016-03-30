@@ -190,11 +190,7 @@ def main():
                         clean_entries[16][i] = year[0]
                         if year[1]!=None: invalid_refs += [year[1]] # detects if there's an error in year
 
-    print clean_entries[6][:1000]
-    print clean_entries[6][1000:2000]
-    print clean_entries[6][2000:3000]
-    print clean_entries[6][3000:4000]
-    print clean_entries[6][4000:5000]
+    #print clean_entries[6][4000:5000]
 
     #---------------- WARNING THE USER ABOUT MISTAKES AND GAPS -----------------
 
@@ -311,36 +307,43 @@ def main():
 
     # sorts the list of bib entries using unique bib_cite_keys:
     sorted_refs = sorted(sorted_refs, key=itemgetter(1))
-    #print [r[1] for r in sorted_refs]
-    print clean_entries[3][i]
+
+    print sorted_refs[0]
+
+    #print [r[4] for r in sorted_refs]
+    #print clean_entries[3][i]
 
     #---------------------------------------------------------------------------
 
     # initialize an output file, which will be stored in the 'output' folder
 
-    #res = open('test.txt','wb')
-    #for stuff in bib_items:
-    #    res.write(stuff)
-    #res.close()
+    output = open('bib_output_file/test.txt','wb')
+
+    bib_string = '%This list of bibliographic references was created by the super duper\n'+\
+                 '%awesome script from M.Combe and Ge0Da\n\n'
+
+    somth =['type', 'citekey', 'author', 'editor', 'title', 'booktitle', 'chapter',
+            'institution', 'school', 'journal', 'volume', 'number', 'pages', 'note',
+            'url', 'doi', 'year']
+
+    for r in sorted_refs:
+        
+        bib_string += '@%s{%s,\n' %(r[0],r[1])
+        
+        for i in np.arange(2,17,1):
+            if r[i]!='' and i!=16:
+                 bib_string += '    %s = %s,\n' %(somth[i],r[i])
+            elif r[i]!='' and i==16:
+                 bib_string += '    %s = %s\n' %(somth[i],r[i])
+            else:
+                 pass
+        bib_string += '}\n\n'
+        #print bib_string
+
+    output.write(bib_string)
+    output.close()
 
 
-    # write clean bib_items to the master.bib file:
-    # NB: what you write is entry_type dependant
-
-    #for ...
-
-    #    if entry_type=='article':
-    #         output_file.write (....)
-    #    elif entry_type=='book':
-    #         output_file.write (....)
-    #    elif entry_type=='chapter':
-    #         output_file.write (....)
-    #    elif entry_type=='website':
-    #         output_file.write (....)
-    #    else:
-    #         output_file.write (....)
-
-    # close the output file
 
     # write a message to user to report success of the cleaning, and where to
     # find the clean file
@@ -731,8 +734,8 @@ def cleanName(name, ref_nb, ref_type):
             author_list += ' ' + string
 
 
-#    # attach the {}'s and the comma, so we don't have to worry later on
-#    name = '{' + name + '},'
+    # attach the {}'s and the comma, so we don't have to worry later on
+    author_list = '{' + author_list + '}'
 
     # check for invalid format:
     invalidName = False
@@ -772,7 +775,7 @@ def cleanTitle(title, ref_nb, ref_type):
 
     # make the first letter Capital and add {{}} to force bibtex to read "as is"
     title = title[0].upper() + title[1:]
-    title = '{{' + title + '}},'
+    title = '{{' + title + '}}'
 
     # check for invalid format:
     invalidTitle = False
